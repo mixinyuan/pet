@@ -7,7 +7,44 @@
     <link rel="preconnect" href="https://images.unsplash.com" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
+  <body class="auth-locked">
+    <section class="login-screen" aria-labelledby="login-title">
+      <div class="login-panel">
+        <div class="login-copy">
+          <a class="brand login-brand" href="#top" aria-label="PawBites 鲜宠小食">
+            <span class="brand-mark">P</span>
+            <span>PawBites 鲜宠小食</span>
+          </a>
+          <p class="eyebrow">Welcome back</p>
+          <h1 id="login-title">先登录，再为毛孩子挑一份安心零食。</h1>
+          <p class="login-text">
+            登录后进入宠物零食商城首页；也可以用游客身份直接浏览商品、筛选分类和体验购物车。
+          </p>
+          <div class="login-benefits" aria-label="登录权益">
+            <span>新人优惠</span>
+            <span>收藏商品</span>
+            <span>订单同步</span>
+          </div>
+        </div>
+
+        <form class="login-form" id="loginForm">
+          <div class="form-heading">
+            <h2>账号登录</h2>
+            <p>登录后继续为毛孩子挑选今日好物。</p>
+          </div>
+          <label for="username">账号</label>
+          <input id="username" name="username" type="text" autocomplete="username" placeholder="请输入手机号或邮箱" required />
+
+          <label for="password">密码</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required />
+
+          <button class="login-submit" type="submit">登录进入</button>
+          <button class="guest-submit" type="button" id="guestLogin">游客进入</button>
+          <p class="login-message" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
     <header class="site-header">
       <a class="brand" href="#top" aria-label="PawBites 鲜宠小食首页">
         <span class="brand-mark">P</span>
@@ -27,11 +64,17 @@
         <a href="#reviews">评价</a>
       </nav>
 
-      <button class="cart-button" type="button" aria-label="打开购物车">
-        <span class="cart-icon" aria-hidden="true">🛒</span>
-        <span>购物车</span>
-        <span class="cart-count">0</span>
-      </button>
+      <div class="header-actions">
+        <button class="account-button" type="button" aria-label="退出当前账号">
+          <span class="account-name">游客模式</span>
+          <span class="logout-label">退出</span>
+        </button>
+        <button class="cart-button" type="button" aria-label="打开购物车">
+          <span class="cart-icon" aria-hidden="true">🛒</span>
+          <span>购物车</span>
+          <span class="cart-count">0</span>
+        </button>
+      </div>
     </header>
 
     <main id="top">
@@ -103,7 +146,7 @@
             <p class="eyebrow">Best sellers</p>
             <h2 id="products-title">热销商品</h2>
           </div>
-          <p class="section-note">本地模拟数据展示，适合后续接入真实商品接口。</p>
+          <p class="section-note">低盐低脂、适口配方，按需求快速挑选。</p>
         </div>
         <div class="product-grid" id="productGrid" aria-live="polite"></div>
       </section>
@@ -200,9 +243,10 @@
       <form class="subscribe-form">
         <label for="email">订阅优惠</label>
         <div>
-          <input id="email" type="email" placeholder="输入邮箱获取新人券" />
+          <input id="email" type="email" placeholder="输入邮箱获取新人券" required />
           <button type="submit">订阅</button>
         </div>
+        <p class="subscribe-message" role="status" aria-live="polite"></p>
       </form>
       <div class="footer-links">
         <span>满99包邮</span>
@@ -220,11 +264,14 @@
       <div class="cart-items"></div>
       <div class="cart-empty">购物车还是空的，先挑一份毛孩子喜欢的吧。</div>
       <div class="cart-summary">
-        <div>
+        <div class="cart-summary-line">
           <span>小计</span>
           <strong class="cart-total">¥0</strong>
         </div>
-        <button type="button">去结算</button>
+        <div class="cart-actions">
+          <button class="clear-cart" type="button">清空</button>
+          <button class="checkout-button" type="button">去结算</button>
+        </div>
       </div>
     </aside>
 

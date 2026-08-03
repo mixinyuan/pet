@@ -91,6 +91,13 @@ const products = [
 
 const productGrid = document.querySelector("#productGrid");
 const categoryButtons = document.querySelectorAll(".category-card");
+const loginScreen = document.querySelector(".login-screen");
+const loginForm = document.querySelector("#loginForm");
+const usernameInput = document.querySelector("#username");
+const guestLoginButton = document.querySelector("#guestLogin");
+const loginMessage = document.querySelector(".login-message");
+const accountButton = document.querySelector(".account-button");
+const accountName = document.querySelector(".account-name");
 const cartButton = document.querySelector(".cart-button");
 const cartDrawer = document.querySelector(".cart-drawer");
 const drawerBackdrop = document.querySelector(".drawer-backdrop");
@@ -99,16 +106,134 @@ const cartItems = document.querySelector(".cart-items");
 const cartEmpty = document.querySelector(".cart-empty");
 const cartCount = document.querySelector(".cart-count");
 const cartTotal = document.querySelector(".cart-total");
+const clearCartButton = document.querySelector(".clear-cart");
+const checkoutButton = document.querySelector(".checkout-button");
 const toast = document.querySelector(".toast");
 const menuToggle = document.querySelector(".menu-toggle");
 const navLinks = document.querySelector(".nav-links");
+const subscribeForm = document.querySelector(".subscribe-form");
+const subscribeInput = document.querySelector("#email");
+const subscribeMessage = document.querySelector(".subscribe-message");
 
+const AUTH_STORAGE_KEY = "pawbites-auth";
+const CART_STORAGE_KEY = "pawbites-cart";
+const SUBSCRIBE_STORAGE_KEY = "pawbites-subscribers";
 const cart = new Map();
 let activeFilter = "all";
+let currentUser = null;
 let toastTimer;
+
+function readStoredValue(key, fallbackValue = null) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallbackValue;
+  } catch {
+    return fallbackValue;
+  }
+}
+
+function writeStoredValue(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Local storage can be unavailable in strict privacy modes.
+  }
+}
+
+function removeStoredValue(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Ignore storage failures; the in-memory state still works.
+  }
+}
+
+function getProduct(id) {
+  return products.find((item) => item.id === id);
+}
 
 function formatPrice(value) {
   return `¥${value}`;
+}
+
+function updateAccount() {
+  if (!accountName || !currentUser) return;
+  accountName.textContent = currentUser.displayName;
+  accountButton.setAttribute("aria-label", `退出${currentUser.displayName}`);
+}
+
+function unlockPage(profile, options = {}) {
+  currentUser = profile;
+  document.body.classList.remove("auth-locked");
+  loginScreen.setAttribute("aria-hidden", "true");
+  loginForm.reset();
+  loginMessage.textContent = "";
+  writeStoredValue(AUTH_STORAGE_KEY, profile);
+  updateAccount();
+
+  if (options.focusHome) {
+    document.querySelector(".site-header .brand").focus();
+  }
+
+  if (options.showWelcome) {
+    showToast(`${profile.displayName}，欢迎回来`);
+  }
+}
+
+function lockPage(message = "") {
+  currentUser = null;
+  removeStoredValue(AUTH_STORAGE_KEY);
+  closeCart();
+  closeMenu();
+  document.body.classList.add("auth-locked");
+  loginScreen.setAttribute("aria-hidden", "false");
+  loginMessage.textContent = message;
+  usernameInput.focus();
+}
+
+function restoreAuth() {
+  const savedProfile = readStoredValue(AUTH_STORAGE_KEY);
+  if (!savedProfile || !savedProfile.displayName) return;
+  unlockPage(savedProfile);
+}
+
+function submitLogin(event) {
+  event.preventDefault();
+  if (!loginForm.checkValidity()) {
+    loginForm.reportValidity();
+    return;
+  }
+
+  const displayName = usernameInput.value.trim();
+  if (!displayName) {
+    loginMessage.textContent = "请输入有效账号。";
+    usernameInput.focus();
+    return;
+  }
+
+  unlockPage(
+    {
+      mode: "user",
+      displayName,
+    },
+    {
+      focusHome: true,
+      showWelcome: true,
+    }
+  );
+}
+
+function enterAsGuest() {
+  unlockPage(
+    {
+      mode: "guest",
+      displayName: "游客模式",
+    },
+    {
+      focusHome: true,
+      showWelcome: true,
+    }
+  );
 }
 
 function renderProducts() {
@@ -142,21 +267,40 @@ function renderProducts() {
     .join("");
 }
 
+function restoreCart() {
+  const savedCart = readStoredValue(CART_STORAGE_KEY, {});
+  Object.entries(savedCart).forEach(([id, quantity]) => {
+    const normalizedQuantity = Number(quantity);
+    if (getProduct(id) && Number.isInteger(normalizedQuantity) && normalizedQuantity > 0) {
+      cart.set(id, normalizedQuantity);
+    }
+  });
+}
+
+function persistCart() {
+  writeStoredValue(CART_STORAGE_KEY, Object.fromEntries(cart));
+}
+
 function updateCart() {
   const entries = [...cart.entries()];
   const count = entries.reduce((sum, [, quantity]) => sum + quantity, 0);
   const total = entries.reduce((sum, [id, quantity]) => {
-    const product = products.find((item) => item.id === id);
-    return sum + product.price * quantity;
+    const product = getProduct(id);
+    return product ? sum + product.price * quantity : sum;
   }, 0);
 
   cartCount.textContent = count;
   cartTotal.textContent = formatPrice(total);
+  cartButton.setAttribute("aria-label", count > 0 ? `打开购物车，共${count}件商品` : "打开购物车");
   cartEmpty.hidden = entries.length > 0;
+  clearCartButton.disabled = entries.length === 0;
+  checkoutButton.disabled = entries.length === 0;
+  persistCart();
 
   cartItems.innerHTML = entries
     .map(([id, quantity]) => {
-      const product = products.find((item) => item.id === id);
+      const product = getProduct(id);
+      if (!product) return "";
       return `
         <article class="cart-item">
           <img src="${product.image}" alt="${product.name}">
@@ -187,16 +331,39 @@ function showToast(message) {
 }
 
 function addToCart(id) {
+  const product = getProduct(id);
+  if (!product) return;
   cart.set(id, (cart.get(id) || 0) + 1);
   updateCart();
-  const product = products.find((item) => item.id === id);
   showToast(`${product.name}已加入购物车`);
+}
+
+function clearCart() {
+  if (cart.size === 0) return;
+  cart.clear();
+  updateCart();
+  showToast("购物车已清空");
+}
+
+function checkoutCart() {
+  if (cart.size === 0) {
+    openCart();
+    showToast("购物车为空，先挑选商品吧");
+    return;
+  }
+
+  const count = [...cart.values()].reduce((sum, quantity) => sum + quantity, 0);
+  cart.clear();
+  updateCart();
+  closeCart();
+  showToast(`订单已提交，共${count}件商品`);
 }
 
 function openCart() {
   cartDrawer.classList.add("open");
   cartDrawer.setAttribute("aria-hidden", "false");
   drawerBackdrop.hidden = false;
+  closeCartButton.focus();
 }
 
 function closeCart() {
@@ -205,12 +372,25 @@ function closeCart() {
   drawerBackdrop.hidden = true;
 }
 
+function closeMenu() {
+  navLinks.classList.remove("open");
+  menuToggle.setAttribute("aria-expanded", "false");
+  menuToggle.setAttribute("aria-label", "打开导航菜单");
+}
+
 categoryButtons.forEach((button) => {
   button.addEventListener("click", () => {
     activeFilter = button.dataset.filter;
     categoryButtons.forEach((item) => item.classList.toggle("active", item === button));
+    categoryButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
     renderProducts();
   });
+});
+
+loginForm.addEventListener("submit", submitLogin);
+guestLoginButton.addEventListener("click", enterAsGuest);
+accountButton.addEventListener("click", () => {
+  lockPage("已退出登录，可以重新进入。");
 });
 
 productGrid.addEventListener("click", (event) => {
@@ -245,6 +425,8 @@ cartItems.addEventListener("click", (event) => {
 cartButton.addEventListener("click", openCart);
 closeCartButton.addEventListener("click", closeCart);
 drawerBackdrop.addEventListener("click", closeCart);
+clearCartButton.addEventListener("click", clearCart);
+checkoutButton.addEventListener("click", checkoutCart);
 
 menuToggle.addEventListener("click", () => {
   const isOpen = navLinks.classList.toggle("open");
@@ -253,18 +435,49 @@ menuToggle.addEventListener("click", () => {
 });
 
 navLinks.addEventListener("click", () => {
-  navLinks.classList.remove("open");
-  menuToggle.setAttribute("aria-expanded", "false");
-  menuToggle.setAttribute("aria-label", "打开导航菜单");
+  closeMenu();
+});
+
+subscribeForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!subscribeForm.checkValidity()) {
+    subscribeForm.reportValidity();
+    return;
+  }
+
+  const email = subscribeInput.value.trim().toLowerCase();
+  if (!email) {
+    subscribeMessage.textContent = "请输入邮箱后再订阅。";
+    subscribeInput.focus();
+    return;
+  }
+
+  const savedSubscribers = readStoredValue(SUBSCRIBE_STORAGE_KEY, []);
+  const subscribers = Array.isArray(savedSubscribers) ? savedSubscribers : [];
+  const alreadySubscribed = subscribers.includes(email);
+
+  if (!alreadySubscribed) {
+    subscribers.push(email);
+    writeStoredValue(SUBSCRIBE_STORAGE_KEY, subscribers);
+  }
+
+  subscribeMessage.textContent = alreadySubscribed ? "这个邮箱已经订阅过优惠。" : "订阅成功，新人券稍后发送到邮箱。";
+  subscribeForm.reset();
+  showToast(alreadySubscribed ? "邮箱已订阅" : "订阅成功");
 });
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeCart();
-    navLinks.classList.remove("open");
-    menuToggle.setAttribute("aria-expanded", "false");
+    closeMenu();
   }
 });
 
+categoryButtons.forEach((button) => {
+  button.setAttribute("aria-pressed", String(button.classList.contains("active")));
+});
+
+restoreAuth();
+restoreCart();
 renderProducts();
 updateCart();
