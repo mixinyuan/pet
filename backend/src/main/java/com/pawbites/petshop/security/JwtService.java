@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import jakarta.annotation.PostConstruct;
@@ -84,8 +85,9 @@ public class JwtService {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("sub", String.valueOf(user.getId()));
     payload.put("userId", user.getId());
-    payload.put("username", user.getUsername());
-    payload.put("nickname", user.getNickname());
+    // 用户名/昵称为 null 时落空串而非字符串 "null"（nickname 允许为空）
+    payload.put("username", Objects.toString(user.getUsername(), ""));
+    payload.put("nickname", Objects.toString(user.getNickname(), ""));
     payload.put("iat", now.getEpochSecond());
     payload.put("exp", now.plusSeconds(expireHours * 3600).getEpochSecond());
 
@@ -124,8 +126,9 @@ public class JwtService {
       }
 
       Number userId = (Number) payload.get("userId");
-      String username = String.valueOf(payload.get("username"));
-      String nickname = String.valueOf(payload.get("nickname"));
+      // 兼容历史 token 中可能存在的 null 值，统一还原为空串
+      String username = Objects.toString(payload.get("username"), "");
+      String nickname = Objects.toString(payload.get("nickname"), "");
       return new AuthPrincipal(userId.longValue(), username, nickname);
     } catch (Exception exception) {
       return null;

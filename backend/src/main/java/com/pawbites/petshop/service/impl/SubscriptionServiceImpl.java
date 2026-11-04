@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.pawbites.petshop.constant.StatusConstants;
 import com.pawbites.petshop.dto.subscription.SubscriptionRequest;
 import com.pawbites.petshop.entity.Subscription;
+import com.pawbites.petshop.exception.BusinessException;
 import com.pawbites.petshop.mapper.SubscriptionMapper;
 import com.pawbites.petshop.vo.subscription.SubscriptionVO;
 
@@ -40,6 +41,10 @@ public class SubscriptionServiceImpl extends ServiceImpl<SubscriptionMapper, Sub
         subscription = baseMapper.selectOne(Wrappers.<Subscription>lambdaQuery()
             .eq(Subscription::getEmail, email)
             .last("LIMIT 1 FOR UPDATE"));
+        // 极端时序兜底：撞键行又被并发物理删除导致重查为空，提示重试而非空指针
+        if (subscription == null) {
+          throw new BusinessException("订阅失败，请稍后重试");
+        }
       }
     } else if (!StatusConstants.ACTIVE.equals(subscription.getStatus())) {
       subscription.setStatus(StatusConstants.ACTIVE);

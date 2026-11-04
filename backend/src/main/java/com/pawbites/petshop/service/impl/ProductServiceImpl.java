@@ -53,8 +53,9 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
 
   @Override
   public PageResult<ProductVO> listProducts(long page, long size, String categoryCode, String keyword) {
-    // 页码 clamp 到 [1, 10000]，防止深分页时偏移量溢出或拖垮查询
+    // 页码 clamp 到 [1, 10000]，防止深分页时偏移量溢出或拖垮查询；每页条数 clamp 到 [1, 100]
     long safePage = Math.min(Math.max(page, 1), 10000L);
+    long safeSize = Math.min(Math.max(size, 1), 100);
     // 关键字转义 like 通配符后再参与匹配，避免 %、_、\ 被当作通配符解释
     String likeKeyword = escapeLike(keyword);
     List<Long> categoryProductIds = null;
@@ -64,7 +65,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
           .eq(Category::getStatus, StatusConstants.ACTIVE)
           .last("LIMIT 1"));
       if (category == null) {
-        return new PageResult<>(List.of(), 0, safePage, size);
+        return new PageResult<>(List.of(), 0, safePage, safeSize);
       }
       categoryProductIds = productCategoryRelMapper.selectList(Wrappers.<ProductCategoryRel>lambdaQuery()
               .eq(ProductCategoryRel::getCategoryId, category.getId()))
@@ -73,12 +74,12 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
           .distinct()
           .toList();
       if (categoryProductIds.isEmpty()) {
-        return new PageResult<>(List.of(), 0, safePage, size);
+        return new PageResult<>(List.of(), 0, safePage, safeSize);
       }
     }
 
     IPage<Product> productPage = baseMapper.selectPage(
-        Page.of(safePage, Math.min(Math.max(size, 1), 100)),
+        Page.of(safePage, safeSize),
         Wrappers.<Product>lambdaQuery()
             .eq(Product::getStatus, StatusConstants.ACTIVE)
             .in(categoryProductIds != null, Product::getId, categoryProductIds)

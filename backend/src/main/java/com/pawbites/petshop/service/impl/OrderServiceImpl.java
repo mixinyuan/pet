@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +48,8 @@ import com.pawbites.petshop.vo.order.OrderVO;
  */
 @Service
 public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> implements OrderService {
+
+  private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
 
   /** 订单号中的时间戳格式（yyyyMMddHHmmss） */
   private static final DateTimeFormatter ORDER_NO_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
@@ -127,8 +131,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
   @Override
   public PageResult<OrderVO> listOrders(Long userId, String guestId, long page, long size) {
     requireOwner(userId, guestId);
+    // 页码 clamp 到 [1, 10000]（与商品侧一致），防止深分页偏移量溢出或拖垮查询；size clamp 到 [1, 100]
     IPage<OrderEntity> orderPage = baseMapper.selectPage(
-        Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 100)),
+        Page.of(Math.min(Math.max(page, 1), 10000L), Math.min(Math.max(size, 1), 100)),
         Wrappers.<OrderEntity>lambdaQuery()
             .eq(userId != null, OrderEntity::getUserId, userId)
             .eq(userId == null, OrderEntity::getGuestId, guestId)
@@ -173,7 +178,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
 
     List<OrderItem> items = listOrderItems(order.getId());
     for (OrderItem item : items) {
-      productMapper.restoreStock(item.getProductId(), item.getQuantity());
+      // 商品行缺失或已物理删除时恢复会落空：仅记录告警、不阻断取消流程（当前无物理删除路径，防御性处理）
+      if (productMapper.restoreStock(item.getProductId(), item.getQuantity()) == 0) {
+        log.warn("取消订单 {} 回补库存失败：商品 {} 不存在或已删除", order.getOrderNo(), item.getProductId());
+      }
     }
     return toOrderVO(baseMapper.selectById(orderId));
   }
