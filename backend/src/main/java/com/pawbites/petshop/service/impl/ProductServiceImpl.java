@@ -29,15 +29,25 @@ import com.pawbites.petshop.mapper.ProductTagRelMapper;
 import com.pawbites.petshop.result.PageResult;
 import com.pawbites.petshop.vo.product.ProductVO;
 
+/**
+ * 商品服务实现
+ * <p>listProducts 先按分类 code 查有效分类并经 product_category_rel 解析出商品 id 集合，
+ * 再组合状态/分类/关键字（名称、口味、宠物类型 like）条件分页查询，按评分降序，
+ * 页码从 1 起、size 上限 100；enrichProducts 批量装载分类 code 与标签名，避免逐条目查询。</p>
+ */
 @Service
 public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> implements ProductService {
 
+  /** 分类 Mapper（按 code 解析分类） */
   @Resource
   private CategoryMapper categoryMapper;
+  /** 商品-分类关联 Mapper（分类过滤与分类 code 装配） */
   @Resource
   private ProductCategoryRelMapper productCategoryRelMapper;
+  /** 商品标签 Mapper（标签名装配） */
   @Resource
   private ProductTagMapper productTagMapper;
+  /** 商品-标签关联 Mapper（标签名装配） */
   @Resource
   private ProductTagRelMapper productTagRelMapper;
 
@@ -123,6 +133,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         .toList();
   }
 
+  /** 批量装载商品 → 分类 code 列表映射（经关联表分组，过滤无效分类） */
   private Map<Long, List<String>> loadCategoryCodes(List<Long> productIds) {
     List<ProductCategoryRel> rels = productCategoryRelMapper.selectList(Wrappers.<ProductCategoryRel>lambdaQuery()
         .in(ProductCategoryRel::getProductId, productIds));
@@ -140,6 +151,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         ));
   }
 
+  /** 批量装载商品 → 标签名列表映射（经关联表分组，过滤无效标签） */
   private Map<Long, List<String>> loadTagNames(List<Long> productIds) {
     List<ProductTagRel> rels = productTagRelMapper.selectList(Wrappers.<ProductTagRel>lambdaQuery()
         .in(ProductTagRel::getProductId, productIds));

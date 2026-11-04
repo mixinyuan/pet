@@ -11,6 +11,10 @@ import com.pawbites.petshop.entity.Category;
 import com.pawbites.petshop.mapper.CategoryMapper;
 import com.pawbites.petshop.vo.category.CategoryVO;
 
+/**
+ * 分类服务实现
+ * <p>查询有效状态的分类，按排序值与 id 升序返回，逐条映射为分类视图。</p>
+ */
 @Service
 public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> implements CategoryService {
 

@@ -30,17 +30,29 @@ import com.pawbites.petshop.mapper.ProductMapper;
 import com.pawbites.petshop.vo.order.OrderItemVO;
 import com.pawbites.petshop.vo.order.OrderVO;
 
+/**
+ * 订单服务实现
+ * <p>createFromCart 在单个事务中完成：校验勾选项与商品可售状态 → deductStock 原子扣减库存防超卖
+ * （条件更新影响行数为 0 即抛异常回滚）→ 保存订单与条目（条目保存商品名称/图片/价格快照，不受后续改价影响）→
+ * 清空已勾选的购物车条目；cancelOrder 校验 CREATED 状态后按条目 restoreStock 恢复库存；
+ * 列表与详情按 userId/guestId 归属过滤。</p>
+ */
 @Service
 public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> implements OrderService {
 
+  /** 订单号中的时间戳格式（yyyyMMddHHmmss） */
   private static final DateTimeFormatter ORDER_NO_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
+  /** 订单条目 Mapper */
   @Resource
   private OrderItemMapper orderItemMapper;
+  /** 购物车条目 Mapper（读取勾选项、下单后清理） */
   @Resource
   private CartItemMapper cartItemMapper;
+  /** 商品 Mapper（扣减/恢复库存） */
   @Resource
   private ProductMapper productMapper;
+  /** 购物车服务（跨模块定位购物车） */
   @Resource
   private CartService cartService;
 
@@ -141,6 +153,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
     return toOrderVO(order);
   }
 
+  /** 组装订单视图：装载订单条目明细 */
   private OrderVO toOrderVO(OrderEntity order) {
     List<OrderItemVO> items = listOrderItems(order.getId()).stream()
         .map(item -> new OrderItemVO(
@@ -162,12 +175,14 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
     );
   }
 
+  /** 查询订单全部条目（按 id 升序） */
   private List<OrderItem> listOrderItems(Long orderId) {
     return orderItemMapper.selectList(Wrappers.<OrderItem>lambdaQuery()
         .eq(OrderItem::getOrderId, orderId)
         .orderByAsc(OrderItem::getId));
   }
 
+  /** 校验商品存在且为有效状态，否则视为已下架 */
   private Product requireOrderableProduct(Product product) {
     if (product == null || !StatusConstants.ACTIVE.equals(product.getStatus())) {
       throw new BusinessException("部分商品已下架");
@@ -175,12 +190,14 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
     return product;
   }
 
+  /** 校验身份参数：userId 与 guestId 至少存在其一 */
   private void requireOwner(Long userId, String guestId) {
     if (userId == null && !StringUtils.hasText(guestId)) {
       throw new BusinessException(401, "请先登录或提供游客标识");
     }
   }
 
+  /** 判断订单是否归属当前身份（userId 优先，其次比对 guestId） */
   private boolean isOwner(OrderEntity order, Long userId, String guestId) {
     if (userId != null) {
       return userId.equals(order.getUserId());
@@ -188,6 +205,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
     return StringUtils.hasText(guestId) && guestId.equals(order.getGuestId());
   }
 
+  /** 生成订单号：前缀 PB + 时间戳 + 6 位随机数 */
   private String generateOrderNo() {
     return "PB" + LocalDateTime.now().format(ORDER_NO_TIME) + ThreadLocalRandom.current().nextInt(100000, 1000000);
   }

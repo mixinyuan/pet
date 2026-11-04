@@ -19,11 +19,19 @@ import com.pawbites.petshop.security.JwtService;
 import com.pawbites.petshop.vo.auth.AuthResponse;
 import com.pawbites.petshop.vo.auth.UserProfileVO;
 
+/**
+ * 认证服务实现
+ * <p>注册走事务：先按用户名/邮箱查重，密码经 BCrypt 加密后入库；
+ * 登录支持用户名或邮箱 + 密码比对，仅匹配有效状态用户；
+ * currentUser 按 id 回查并校验状态，失效时返回 401。</p>
+ */
 @Service
 public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements AuthService {
 
+  /** 密码加密器（BCrypt，负责密码加密与比对） */
   @Resource
   private PasswordEncoder passwordEncoder;
+  /** JWT 令牌服务（签发登录令牌） */
   @Resource
   private JwtService jwtService;
 
@@ -76,10 +84,12 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements Au
     return toProfile(user);
   }
 
+  /** 组装认证响应：签发 JWT 令牌并附带用户资料 */
   private AuthResponse buildAuthResponse(User user) {
     return new AuthResponse(jwtService.generateToken(user), toProfile(user));
   }
 
+  /** 用户实体转用户资料视图 */
   private UserProfileVO toProfile(User user) {
     return new UserProfileVO(user.getId(), user.getUsername(), user.getEmail(), user.getNickname());
   }

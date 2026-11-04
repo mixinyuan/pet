@@ -15,23 +15,48 @@ import org.springframework.stereotype.Service;
 
 import com.pawbites.petshop.entity.User;
 
+/**
+ * 手写 JWT 服务（不依赖 jjwt 等第三方库），负责令牌的签发与解析校验。
+ *
+ * <p>关键设计点：
+ * <ul>
+ *   <li>签名算法固定为 HS256（HMAC-SHA256），验签时不信任 token 头部的 alg 字段，防止算法降级攻击；</li>
+ *   <li>验签采用常量时间比较，逐字节异或后统一判定，防止时序攻击；</li>
+ *   <li>解析时强制校验 exp 过期时间，缺失或已过期均视为无效令牌；</li>
+ *   <li>各段编码统一使用 Base64 URL 安全编码且无填充，符合 JWT 规范。</li>
+ * </ul>
+ */
 @Service
 public class JwtService {
 
+  /** Base64 URL 安全编码器（无填充），用于编码 JWT 的 header/payload/签名段。 */
   private static final Base64.Encoder ENCODER = Base64.getUrlEncoder().withoutPadding();
+  /** Base64 URL 安全解码器，用于还原 payload 段的原始 JSON 字节。 */
   private static final Base64.Decoder DECODER = Base64.getUrlDecoder();
+  /** Jackson 类型引用：payload JSON → {@code Map<String, Object>}。 */
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
   };
 
   @Resource
   private ObjectMapper objectMapper;
 
+  /** JWT 签名密钥，来自配置项 app.jwt.secret。 */
   @Value("${app.jwt.secret}")
   private String secret;
 
+  /** 令牌有效期（小时），来自配置项 app.jwt.expire-hours。 */
   @Value("${app.jwt.expire-hours}")
   private long expireHours;
 
+  /**
+   * 为指定用户签发 JWT。
+   *
+   * <p>header 固定为 {@code {"alg":"HS256","typ":"JWT"}}；payload 携带 sub/userId/username/nickname，
+   * 以及签发时间 iat 和过期时间 exp（当前时间 + expireHours 小时）。
+   *
+   * @param user 已通过认证（登录或注册成功）的用户实体
+   * @return 形如 header.payload.signature 的三段式 JWT 字符串
+   */
   public String generateToken(User user) {
     Instant now = Instant.now();
     Map<String, Object> header = new LinkedHashMap<>();
@@ -52,6 +77,16 @@ public class JwtService {
     return content + "." + sign(content);
   }
 
+  /**
+   * 解析并校验 JWT，还原认证主体。
+   *
+   * <p>校验流程：结构必须为三段 → 常量时间比较签名 → 校验 exp 未过期 → 解析 payload。
+   * 任何一步失败或抛出异常均不向外传播，统一返回 {@code null}。
+   *
+   * @param token 待校验的 JWT 字符串
+   * @return 认证主体；以下任一情况返回 {@code null}：格式错误（段数不为 3、Base64/JSON 解析失败）、
+   *         签名不符、exp 缺失或已过期
+   */
   public AuthPrincipal parseToken(String token) {
     try {
       String[] parts = token.split("\\.");
@@ -79,6 +114,13 @@ public class JwtService {
     }
   }
 
+  /**
+   * 将 Map 序列化为 JSON 并做 Base64 URL 安全编码。
+   *
+   * @param value 待编码的 header 或 payload
+   * @return Base64 URL 安全编码（无填充）后的字符串
+   * @throws IllegalStateException JSON 序列化失败时抛出
+   */
   private String encodeJson(Map<String, Object> value) {
     try {
       return ENCODER.encodeToString(objectMapper.writeValueAsBytes(value));
@@ -87,6 +129,13 @@ public class JwtService {
     }
   }
 
+  /**
+   * 使用 HMAC-SHA256（即 HS256）对内容签名。
+   *
+   * @param content 待签名内容（header.payload 两段拼接）
+   * @return Base64 URL 安全编码后的签名字符串
+   * @throws IllegalStateException 获取/初始化 Mac 或计算签名失败时抛出
+   */
   private String sign(String content) {
     try {
       Mac mac = Mac.getInstance("HmacSHA256");
@@ -97,6 +146,14 @@ public class JwtService {
     }
   }
 
+  /**
+   * 常量时间字符串比较：逐字节异或后统一判定结果，无论差异出现在哪个字节耗时基本一致，
+   * 防止通过比较耗时逐字节爆破签名的时序攻击。
+   *
+   * @param left  期望值（本地重新计算的签名）
+   * @param right 实际值（token 携带的签名）
+   * @return 内容完全一致返回 true；长度不同直接返回 false
+   */
   private boolean constantTimeEquals(String left, String right) {
     byte[] leftBytes = left.getBytes(StandardCharsets.UTF_8);
     byte[] rightBytes = right.getBytes(StandardCharsets.UTF_8);

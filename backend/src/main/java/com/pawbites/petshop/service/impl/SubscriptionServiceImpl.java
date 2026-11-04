@@ -12,6 +12,11 @@ import com.pawbites.petshop.entity.Subscription;
 import com.pawbites.petshop.mapper.SubscriptionMapper;
 import com.pawbites.petshop.vo.subscription.SubscriptionVO;
 
+/**
+ * 订阅服务实现
+ * <p>subscribe 在事务中执行：邮箱统一转小写后查库，不存在则新建有效订阅，
+ * 已存在但非有效状态则重新激活，已有效的重复提交保持不变（幂等）。</p>
+ */
 @Service
 public class SubscriptionServiceImpl extends ServiceImpl<SubscriptionMapper, Subscription> implements SubscriptionService {
 

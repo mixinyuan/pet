@@ -11,6 +11,10 @@ import com.pawbites.petshop.entity.Review;
 import com.pawbites.petshop.mapper.ReviewMapper;
 import com.pawbites.petshop.vo.review.ReviewVO;
 
+/**
+ * 评价服务实现
+ * <p>查询有效状态的评价，按排序值升序、id 倒序返回，逐条映射为评价视图。</p>
+ */
 @Service
 public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> implements ReviewService {
 

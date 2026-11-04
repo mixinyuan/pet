@@ -25,11 +25,19 @@ import com.pawbites.petshop.mapper.ProductMapper;
 import com.pawbites.petshop.vo.cart.CartItemVO;
 import com.pawbites.petshop.vo.cart.CartVO;
 
+/**
+ * 购物车服务实现
+ * <p>写操作（加购/改量/删除/清空）均在事务中执行；加购前校验商品有效性与库存
+ * （含与已有条目合并后的总量校验）；resolveCart 按 userId 优先、guestId 兜底定位购物车，按需创建；
+ * 视图装配时批量加载商品并过滤已失效商品条目。</p>
+ */
 @Service
 public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements CartService {
 
+  /** 购物车条目 Mapper */
   @Resource
   private CartItemMapper cartItemMapper;
+  /** 商品 Mapper（加购校验与视图装配） */
   @Resource
   private ProductMapper productMapper;
 
@@ -129,6 +137,7 @@ public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements Ca
     return cart;
   }
 
+  /** 组装购物车视图：批量加载条目对应商品，汇总总件数与总金额 */
   private CartVO buildCartVO(Cart cart) {
     if (cart == null) {
       return new CartVO(List.of(), 0, BigDecimal.ZERO);
@@ -159,6 +168,7 @@ public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements Ca
     return new CartVO(itemVOs, count, total);
   }
 
+  /** 条目 + 商品 → 购物车条目视图（商品已失效时返回 null 以便过滤） */
   private CartItemVO toCartItemVO(CartItem item, Product product) {
     if (product == null) {
       return null;
@@ -175,6 +185,7 @@ public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements Ca
     );
   }
 
+  /** 校验商品存在且为有效状态，否则抛 404 */
   private Product requireAvailableProduct(Long productId) {
     Product product = productMapper.selectById(productId);
     if (product == null || !StatusConstants.ACTIVE.equals(product.getStatus())) {
@@ -183,6 +194,7 @@ public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements Ca
     return product;
   }
 
+  /** 校验数量为正且不超过商品当前库存 */
   private void ensureStock(Product product, Integer quantity) {
     if (quantity == null || quantity <= 0) {
       throw new BusinessException("商品数量必须大于 0");

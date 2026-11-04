@@ -20,11 +20,18 @@ import com.pawbites.petshop.mapper.ProductMapper;
 import com.pawbites.petshop.vo.bundle.BundleVO;
 import com.pawbites.petshop.vo.product.ProductSummaryVO;
 
+/**
+ * 套餐服务实现
+ * <p>一次性批量读取全部有效套餐、套餐条目与内含商品，再按套餐分组装配，
+ * 避免逐套餐查询；商品已不存在的条目在装配时被过滤。</p>
+ */
 @Service
 public class BundleServiceImpl extends ServiceImpl<BundleMapper, Bundle> implements BundleService {
 
+  /** 套餐条目 Mapper */
   @Resource
   private BundleItemMapper bundleItemMapper;
+  /** 商品 Mapper（汇总套餐内含商品） */
   @Resource
   private ProductMapper productMapper;
 
@@ -79,6 +86,7 @@ public class BundleServiceImpl extends ServiceImpl<BundleMapper, Bundle> impleme
         .toList();
   }
 
+  /** 套餐条目 + 商品 → 内含商品汇总视图（商品不存在时返回 null 以便过滤） */
   private ProductSummaryVO toProductSummary(BundleItem item, Product product) {
     if (product == null) {
       return null;
