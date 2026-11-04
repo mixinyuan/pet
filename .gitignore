@@ -1,6 +1,9 @@
 # Local Codex/agent workspace state
 .agents/
 
+# 本地工具脚本（含 API Key，不提交）
+vision.js
+
 # Dependencies and generated output
 node_modules/
 .m2/
