@@ -1,4 +1,5 @@
 package com.pawbites.petshop.controller;
+import jakarta.annotation.Resource;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -18,11 +19,8 @@ import com.pawbites.petshop.vo.order.OrderVO;
 @RequestMapping("/api/orders")
 public class OrderController {
 
-  private final OrderService orderService;
-
-  public OrderController(OrderService orderService) {
-    this.orderService = orderService;
-  }
+  @Resource
+  private OrderService orderService;
 
   @PostMapping
   public ApiResponse<OrderVO> create(HttpServletRequest request) {

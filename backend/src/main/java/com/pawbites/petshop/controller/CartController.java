@@ -1,4 +1,5 @@
 package com.pawbites.petshop.controller;
+import jakarta.annotation.Resource;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -22,11 +23,8 @@ import com.pawbites.petshop.vo.cart.CartVO;
 @RequestMapping("/api/cart")
 public class CartController {
 
-  private final CartService cartService;
-
-  public CartController(CartService cartService) {
-    this.cartService = cartService;
-  }
+  @Resource
+  private CartService cartService;
 
   @GetMapping
   public ApiResponse<CartVO> getCart(HttpServletRequest request) {

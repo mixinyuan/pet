@@ -1,4 +1,5 @@
 package com.pawbites.petshop.service.impl;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pawbites.petshop.service.ReviewService;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -11,17 +12,11 @@ import com.pawbites.petshop.mapper.ReviewMapper;
 import com.pawbites.petshop.vo.review.ReviewVO;
 
 @Service
-public class ReviewServiceImpl implements ReviewService {
-
-  private final ReviewMapper reviewMapper;
-
-  public ReviewServiceImpl(ReviewMapper reviewMapper) {
-    this.reviewMapper = reviewMapper;
-  }
+public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> implements ReviewService {
 
   @Override
   public List<ReviewVO> listActiveReviews() {
-    return reviewMapper.selectList(Wrappers.<Review>lambdaQuery()
+    return baseMapper.selectList(Wrappers.<Review>lambdaQuery()
             .eq(Review::getStatus, StatusConstants.ACTIVE)
             .orderByAsc(Review::getSortOrder)
             .orderByDesc(Review::getId))

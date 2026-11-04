@@ -1,4 +1,6 @@
 package com.pawbites.petshop.service.impl;
+import jakarta.annotation.Resource;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pawbites.petshop.service.CartService;
 import com.pawbites.petshop.service.OrderService;
 
@@ -29,29 +31,18 @@ import com.pawbites.petshop.vo.order.OrderItemVO;
 import com.pawbites.petshop.vo.order.OrderVO;
 
 @Service
-public class OrderServiceImpl implements OrderService {
+public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> implements OrderService {
 
   private static final DateTimeFormatter ORDER_NO_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
-  private final OrderMapper orderMapper;
-  private final OrderItemMapper orderItemMapper;
-  private final CartItemMapper cartItemMapper;
-  private final ProductMapper productMapper;
-  private final CartService cartService;
-
-  public OrderServiceImpl(
-      OrderMapper orderMapper,
-      OrderItemMapper orderItemMapper,
-      CartItemMapper cartItemMapper,
-      ProductMapper productMapper,
-      CartService cartService
-  ) {
-    this.orderMapper = orderMapper;
-    this.orderItemMapper = orderItemMapper;
-    this.cartItemMapper = cartItemMapper;
-    this.productMapper = productMapper;
-    this.cartService = cartService;
-  }
+  @Resource
+  private OrderItemMapper orderItemMapper;
+  @Resource
+  private CartItemMapper cartItemMapper;
+  @Resource
+  private ProductMapper productMapper;
+  @Resource
+  private CartService cartService;
 
   @Transactional
   @Override
@@ -89,7 +80,7 @@ public class OrderServiceImpl implements OrderService {
     order.setGuestId(userId == null ? guestId : null);
     order.setStatus(StatusConstants.CREATED);
     order.setTotalAmount(totalAmount);
-    orderMapper.insert(order);
+    baseMapper.insert(order);
 
     for (CartItem cartItem : cartItems) {
       Product product = productMap.get(cartItem.getProductId());
@@ -113,7 +104,7 @@ public class OrderServiceImpl implements OrderService {
   @Override
   public List<OrderVO> listOrders(Long userId, String guestId) {
     requireOwner(userId, guestId);
-    List<OrderEntity> orders = orderMapper.selectList(userId != null
+    List<OrderEntity> orders = baseMapper.selectList(userId != null
         ? Wrappers.<OrderEntity>lambdaQuery().eq(OrderEntity::getUserId, userId).orderByDesc(OrderEntity::getId)
         : Wrappers.<OrderEntity>lambdaQuery().eq(OrderEntity::getGuestId, guestId).orderByDesc(OrderEntity::getId));
     return orders.stream().map(this::toOrderVO).toList();
@@ -122,7 +113,7 @@ public class OrderServiceImpl implements OrderService {
   @Override
   public OrderVO getOrder(Long userId, String guestId, Long orderId) {
     requireOwner(userId, guestId);
-    OrderEntity order = orderMapper.selectById(orderId);
+    OrderEntity order = baseMapper.selectById(orderId);
     if (order == null || !isOwner(order, userId, guestId)) {
       throw new BusinessException(404, "订单不存在");
     }
@@ -133,7 +124,7 @@ public class OrderServiceImpl implements OrderService {
   @Override
   public OrderVO cancelOrder(Long userId, String guestId, Long orderId) {
     requireOwner(userId, guestId);
-    OrderEntity order = orderMapper.selectById(orderId);
+    OrderEntity order = baseMapper.selectById(orderId);
     if (order == null || !isOwner(order, userId, guestId)) {
       throw new BusinessException(404, "订单不存在");
     }
@@ -146,7 +137,7 @@ public class OrderServiceImpl implements OrderService {
       productMapper.restoreStock(item.getProductId(), item.getQuantity());
     }
     order.setStatus(StatusConstants.CANCELLED);
-    orderMapper.updateById(order);
+    baseMapper.updateById(order);
     return toOrderVO(order);
   }
 

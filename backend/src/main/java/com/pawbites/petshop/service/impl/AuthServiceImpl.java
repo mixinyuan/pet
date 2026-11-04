@@ -1,4 +1,6 @@
 package com.pawbites.petshop.service.impl;
+import jakarta.annotation.Resource;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pawbites.petshop.service.AuthService;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -18,17 +20,12 @@ import com.pawbites.petshop.vo.auth.AuthResponse;
 import com.pawbites.petshop.vo.auth.UserProfileVO;
 
 @Service
-public class AuthServiceImpl implements AuthService {
+public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements AuthService {
 
-  private final UserMapper userMapper;
-  private final PasswordEncoder passwordEncoder;
-  private final JwtService jwtService;
-
-  public AuthServiceImpl(UserMapper userMapper, PasswordEncoder passwordEncoder, JwtService jwtService) {
-    this.userMapper = userMapper;
-    this.passwordEncoder = passwordEncoder;
-    this.jwtService = jwtService;
-  }
+  @Resource
+  private PasswordEncoder passwordEncoder;
+  @Resource
+  private JwtService jwtService;
 
   @Transactional
   @Override
@@ -36,10 +33,10 @@ public class AuthServiceImpl implements AuthService {
     String username = request.username().trim();
     String email = StringUtils.hasText(request.email()) ? request.email().trim().toLowerCase() : null;
 
-    if (userMapper.selectCount(Wrappers.<User>lambdaQuery().eq(User::getUsername, username)) > 0) {
+    if (baseMapper.selectCount(Wrappers.<User>lambdaQuery().eq(User::getUsername, username)) > 0) {
       throw new BusinessException("账号已存在");
     }
-    if (StringUtils.hasText(email) && userMapper.selectCount(Wrappers.<User>lambdaQuery().eq(User::getEmail, email)) > 0) {
+    if (StringUtils.hasText(email) && baseMapper.selectCount(Wrappers.<User>lambdaQuery().eq(User::getEmail, email)) > 0) {
       throw new BusinessException("邮箱已被注册");
     }
 
@@ -49,14 +46,14 @@ public class AuthServiceImpl implements AuthService {
     user.setPasswordHash(passwordEncoder.encode(request.password()));
     user.setNickname(StringUtils.hasText(request.nickname()) ? request.nickname().trim() : username);
     user.setStatus(StatusConstants.ACTIVE);
-    userMapper.insert(user);
+    baseMapper.insert(user);
     return buildAuthResponse(user);
   }
 
   @Override
   public AuthResponse login(LoginRequest request) {
     String account = request.username().trim();
-    User user = userMapper.selectOne(Wrappers.<User>lambdaQuery()
+    User user = baseMapper.selectOne(Wrappers.<User>lambdaQuery()
         .and(wrapper -> wrapper.eq(User::getUsername, account).or().eq(User::getEmail, account.toLowerCase()))
         .eq(User::getStatus, StatusConstants.ACTIVE)
         .last("LIMIT 1"));
@@ -72,7 +69,7 @@ public class AuthServiceImpl implements AuthService {
     if (userId == null) {
       throw new BusinessException(401, "请先登录");
     }
-    User user = userMapper.selectById(userId);
+    User user = baseMapper.selectById(userId);
     if (user == null || !StatusConstants.ACTIVE.equals(user.getStatus())) {
       throw new BusinessException(401, "登录状态已失效");
     }

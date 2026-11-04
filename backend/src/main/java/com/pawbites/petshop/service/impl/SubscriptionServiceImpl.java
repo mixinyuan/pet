@@ -1,4 +1,5 @@
 package com.pawbites.petshop.service.impl;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pawbites.petshop.service.SubscriptionService;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -12,19 +13,13 @@ import com.pawbites.petshop.mapper.SubscriptionMapper;
 import com.pawbites.petshop.vo.subscription.SubscriptionVO;
 
 @Service
-public class SubscriptionServiceImpl implements SubscriptionService {
-
-  private final SubscriptionMapper subscriptionMapper;
-
-  public SubscriptionServiceImpl(SubscriptionMapper subscriptionMapper) {
-    this.subscriptionMapper = subscriptionMapper;
-  }
+public class SubscriptionServiceImpl extends ServiceImpl<SubscriptionMapper, Subscription> implements SubscriptionService {
 
   @Transactional
   @Override
   public SubscriptionVO subscribe(SubscriptionRequest request) {
     String email = request.email().trim().toLowerCase();
-    Subscription subscription = subscriptionMapper.selectOne(Wrappers.<Subscription>lambdaQuery()
+    Subscription subscription = baseMapper.selectOne(Wrappers.<Subscription>lambdaQuery()
         .eq(Subscription::getEmail, email)
         .last("LIMIT 1"));
 
@@ -32,10 +27,10 @@ public class SubscriptionServiceImpl implements SubscriptionService {
       subscription = new Subscription();
       subscription.setEmail(email);
       subscription.setStatus(StatusConstants.ACTIVE);
-      subscriptionMapper.insert(subscription);
+      baseMapper.insert(subscription);
     } else if (!StatusConstants.ACTIVE.equals(subscription.getStatus())) {
       subscription.setStatus(StatusConstants.ACTIVE);
-      subscriptionMapper.updateById(subscription);
+      baseMapper.updateById(subscription);
     }
 
     return new SubscriptionVO(subscription.getId(), subscription.getEmail(), subscription.getStatus());

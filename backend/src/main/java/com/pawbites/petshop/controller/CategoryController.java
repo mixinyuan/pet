@@ -1,4 +1,5 @@
 package com.pawbites.petshop.controller;
+import jakarta.annotation.Resource;
 
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,11 +14,8 @@ import com.pawbites.petshop.vo.category.CategoryVO;
 @RequestMapping("/api/categories")
 public class CategoryController {
 
-  private final CategoryService categoryService;
-
-  public CategoryController(CategoryService categoryService) {
-    this.categoryService = categoryService;
-  }
+  @Resource
+  private CategoryService categoryService;
 
   @GetMapping
   public ApiResponse<List<CategoryVO>> list() {

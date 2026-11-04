@@ -1,4 +1,5 @@
 package com.pawbites.petshop.controller;
+import jakarta.annotation.Resource;
 
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,11 +20,8 @@ import com.pawbites.petshop.vo.auth.UserProfileVO;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-  private final AuthService authService;
-
-  public AuthController(AuthService authService) {
-    this.authService = authService;
-  }
+  @Resource
+  private AuthService authService;
 
   @PostMapping("/register")
   public ApiResponse<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {

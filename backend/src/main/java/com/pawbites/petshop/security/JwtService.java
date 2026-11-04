@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -22,19 +23,14 @@ public class JwtService {
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
   };
 
-  private final ObjectMapper objectMapper;
-  private final byte[] secret;
-  private final long expireSeconds;
+  @Resource
+  private ObjectMapper objectMapper;
 
-  public JwtService(
-      ObjectMapper objectMapper,
-      @Value("${app.jwt.secret}") String secret,
-      @Value("${app.jwt.expire-hours}") long expireHours
-  ) {
-    this.objectMapper = objectMapper;
-    this.secret = secret.getBytes(StandardCharsets.UTF_8);
-    this.expireSeconds = expireHours * 3600;
-  }
+  @Value("${app.jwt.secret}")
+  private String secret;
+
+  @Value("${app.jwt.expire-hours}")
+  private long expireHours;
 
   public String generateToken(User user) {
     Instant now = Instant.now();
@@ -48,7 +44,7 @@ public class JwtService {
     payload.put("username", user.getUsername());
     payload.put("nickname", user.getNickname());
     payload.put("iat", now.getEpochSecond());
-    payload.put("exp", now.plusSeconds(expireSeconds).getEpochSecond());
+    payload.put("exp", now.plusSeconds(expireHours * 3600).getEpochSecond());
 
     String headerPart = encodeJson(header);
     String payloadPart = encodeJson(payload);
@@ -94,7 +90,7 @@ public class JwtService {
   private String sign(String content) {
     try {
       Mac mac = Mac.getInstance("HmacSHA256");
-      mac.init(new SecretKeySpec(secret, "HmacSHA256"));
+      mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
       return ENCODER.encodeToString(mac.doFinal(content.getBytes(StandardCharsets.UTF_8)));
     } catch (Exception exception) {
       throw new IllegalStateException("Failed to sign JWT", exception);

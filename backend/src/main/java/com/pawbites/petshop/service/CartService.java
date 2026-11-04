@@ -1,11 +1,13 @@
 package com.pawbites.petshop.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.pawbites.petshop.entity.Cart;
+
 import com.pawbites.petshop.dto.cart.AddCartItemRequest;
 import com.pawbites.petshop.dto.cart.UpdateCartItemRequest;
-import com.pawbites.petshop.entity.Cart;
 import com.pawbites.petshop.vo.cart.CartVO;
 
-public interface CartService {
+public interface CartService extends IService<Cart> {
 
   CartVO getCart(Long userId, String guestId);
 

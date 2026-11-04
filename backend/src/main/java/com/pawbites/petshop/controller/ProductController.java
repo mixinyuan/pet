@@ -1,4 +1,5 @@
 package com.pawbites.petshop.controller;
+import jakarta.annotation.Resource;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,11 +16,8 @@ import com.pawbites.petshop.vo.product.ProductVO;
 @RequestMapping("/api/products")
 public class ProductController {
 
-  private final ProductService productService;
-
-  public ProductController(ProductService productService) {
-    this.productService = productService;
-  }
+  @Resource
+  private ProductService productService;
 
   @GetMapping
   public ApiResponse<PageResult<ProductVO>> list(

@@ -1,4 +1,5 @@
 package com.pawbites.petshop.controller;
+import jakarta.annotation.Resource;
 
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,11 +14,8 @@ import com.pawbites.petshop.vo.review.ReviewVO;
 @RequestMapping("/api/reviews")
 public class ReviewController {
 
-  private final ReviewService reviewService;
-
-  public ReviewController(ReviewService reviewService) {
-    this.reviewService = reviewService;
-  }
+  @Resource
+  private ReviewService reviewService;
 
   @GetMapping
   public ApiResponse<List<ReviewVO>> list() {

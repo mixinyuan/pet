@@ -1,4 +1,6 @@
 package com.pawbites.petshop.service.impl;
+import jakarta.annotation.Resource;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pawbites.petshop.service.CartService;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -24,17 +26,12 @@ import com.pawbites.petshop.vo.cart.CartItemVO;
 import com.pawbites.petshop.vo.cart.CartVO;
 
 @Service
-public class CartServiceImpl implements CartService {
+public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements CartService {
 
-  private final CartMapper cartMapper;
-  private final CartItemMapper cartItemMapper;
-  private final ProductMapper productMapper;
-
-  public CartServiceImpl(CartMapper cartMapper, CartItemMapper cartItemMapper, ProductMapper productMapper) {
-    this.cartMapper = cartMapper;
-    this.cartItemMapper = cartItemMapper;
-    this.productMapper = productMapper;
-  }
+  @Resource
+  private CartItemMapper cartItemMapper;
+  @Resource
+  private ProductMapper productMapper;
 
   @Override
   public CartVO getCart(Long userId, String guestId) {
@@ -120,14 +117,14 @@ public class CartServiceImpl implements CartService {
       throw new BusinessException(401, "请先登录或提供游客标识");
     }
 
-    Cart cart = cartMapper.selectOne(userId != null
+    Cart cart = baseMapper.selectOne(userId != null
         ? Wrappers.<Cart>lambdaQuery().eq(Cart::getUserId, userId).last("LIMIT 1")
         : Wrappers.<Cart>lambdaQuery().eq(Cart::getGuestId, guestId).last("LIMIT 1"));
     if (cart == null && createIfMissing) {
       cart = new Cart();
       cart.setUserId(userId);
       cart.setGuestId(userId == null ? guestId : null);
-      cartMapper.insert(cart);
+      baseMapper.insert(cart);
     }
     return cart;
   }

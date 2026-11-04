@@ -1,4 +1,6 @@
 package com.pawbites.petshop.service.impl;
+import jakarta.annotation.Resource;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pawbites.petshop.service.BundleService;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -19,21 +21,16 @@ import com.pawbites.petshop.vo.bundle.BundleVO;
 import com.pawbites.petshop.vo.product.ProductSummaryVO;
 
 @Service
-public class BundleServiceImpl implements BundleService {
+public class BundleServiceImpl extends ServiceImpl<BundleMapper, Bundle> implements BundleService {
 
-  private final BundleMapper bundleMapper;
-  private final BundleItemMapper bundleItemMapper;
-  private final ProductMapper productMapper;
-
-  public BundleServiceImpl(BundleMapper bundleMapper, BundleItemMapper bundleItemMapper, ProductMapper productMapper) {
-    this.bundleMapper = bundleMapper;
-    this.bundleItemMapper = bundleItemMapper;
-    this.productMapper = productMapper;
-  }
+  @Resource
+  private BundleItemMapper bundleItemMapper;
+  @Resource
+  private ProductMapper productMapper;
 
   @Override
   public List<BundleVO> listActiveBundles() {
-    List<Bundle> bundles = bundleMapper.selectList(Wrappers.<Bundle>lambdaQuery()
+    List<Bundle> bundles = baseMapper.selectList(Wrappers.<Bundle>lambdaQuery()
         .eq(Bundle::getStatus, StatusConstants.ACTIVE)
         .orderByAsc(Bundle::getSortOrder)
         .orderByAsc(Bundle::getId));

@@ -1,4 +1,5 @@
 package com.pawbites.petshop.service.impl;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pawbites.petshop.service.CategoryService;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -11,17 +12,11 @@ import com.pawbites.petshop.mapper.CategoryMapper;
 import com.pawbites.petshop.vo.category.CategoryVO;
 
 @Service
-public class CategoryServiceImpl implements CategoryService {
-
-  private final CategoryMapper categoryMapper;
-
-  public CategoryServiceImpl(CategoryMapper categoryMapper) {
-    this.categoryMapper = categoryMapper;
-  }
+public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> implements CategoryService {
 
   @Override
   public List<CategoryVO> listActiveCategories() {
-    return categoryMapper.selectList(Wrappers.<Category>lambdaQuery()
+    return baseMapper.selectList(Wrappers.<Category>lambdaQuery()
             .eq(Category::getStatus, StatusConstants.ACTIVE)
             .orderByAsc(Category::getSortOrder)
             .orderByAsc(Category::getId))

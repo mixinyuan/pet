@@ -1,4 +1,5 @@
 package com.pawbites.petshop.security;
+import jakarta.annotation.Resource;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,11 +17,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-  private final JwtService jwtService;
-
-  public JwtAuthenticationFilter(JwtService jwtService) {
-    this.jwtService = jwtService;
-  }
+  @Resource
+  private JwtService jwtService;
 
   @Override
   protected void doFilterInternal(

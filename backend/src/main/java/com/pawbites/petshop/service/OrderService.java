@@ -1,9 +1,12 @@
 package com.pawbites.petshop.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.pawbites.petshop.entity.OrderEntity;
+
 import com.pawbites.petshop.vo.order.OrderVO;
 import java.util.List;
 
-public interface OrderService {
+public interface OrderService extends IService<OrderEntity> {
 
   OrderVO createFromCart(Long userId, String guestId);
 

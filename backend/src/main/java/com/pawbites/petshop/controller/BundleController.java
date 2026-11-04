@@ -1,4 +1,5 @@
 package com.pawbites.petshop.controller;
+import jakarta.annotation.Resource;
 
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,11 +14,8 @@ import com.pawbites.petshop.vo.bundle.BundleVO;
 @RequestMapping("/api/bundles")
 public class BundleController {
 
-  private final BundleService bundleService;
-
-  public BundleController(BundleService bundleService) {
-    this.bundleService = bundleService;
-  }
+  @Resource
+  private BundleService bundleService;
 
   @GetMapping
   public ApiResponse<List<BundleVO>> list() {

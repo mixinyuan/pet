@@ -1,4 +1,6 @@
 package com.pawbites.petshop.service.impl;
+import jakarta.annotation.Resource;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pawbites.petshop.service.ProductService;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -28,27 +30,16 @@ import com.pawbites.petshop.result.PageResult;
 import com.pawbites.petshop.vo.product.ProductVO;
 
 @Service
-public class ProductServiceImpl implements ProductService {
+public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> implements ProductService {
 
-  private final ProductMapper productMapper;
-  private final CategoryMapper categoryMapper;
-  private final ProductCategoryRelMapper productCategoryRelMapper;
-  private final ProductTagMapper productTagMapper;
-  private final ProductTagRelMapper productTagRelMapper;
-
-  public ProductServiceImpl(
-      ProductMapper productMapper,
-      CategoryMapper categoryMapper,
-      ProductCategoryRelMapper productCategoryRelMapper,
-      ProductTagMapper productTagMapper,
-      ProductTagRelMapper productTagRelMapper
-  ) {
-    this.productMapper = productMapper;
-    this.categoryMapper = categoryMapper;
-    this.productCategoryRelMapper = productCategoryRelMapper;
-    this.productTagMapper = productTagMapper;
-    this.productTagRelMapper = productTagRelMapper;
-  }
+  @Resource
+  private CategoryMapper categoryMapper;
+  @Resource
+  private ProductCategoryRelMapper productCategoryRelMapper;
+  @Resource
+  private ProductTagMapper productTagMapper;
+  @Resource
+  private ProductTagRelMapper productTagRelMapper;
 
   @Override
   public PageResult<ProductVO> listProducts(long page, long size, String categoryCode, String keyword) {
@@ -72,7 +63,7 @@ public class ProductServiceImpl implements ProductService {
       }
     }
 
-    IPage<Product> productPage = productMapper.selectPage(
+    IPage<Product> productPage = baseMapper.selectPage(
         Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 100)),
         Wrappers.<Product>lambdaQuery()
             .eq(Product::getStatus, StatusConstants.ACTIVE)
@@ -97,7 +88,7 @@ public class ProductServiceImpl implements ProductService {
 
   @Override
   public ProductVO getProduct(Long id) {
-    Product product = productMapper.selectById(id);
+    Product product = baseMapper.selectById(id);
     if (product == null || !StatusConstants.ACTIVE.equals(product.getStatus())) {
       throw new BusinessException(404, "商品不存在或已下架");
     }

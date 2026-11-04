@@ -1,4 +1,5 @@
 package com.pawbites.petshop.controller;
+import jakarta.annotation.Resource;
 
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,11 +16,8 @@ import com.pawbites.petshop.vo.subscription.SubscriptionVO;
 @RequestMapping("/api/subscriptions")
 public class SubscriptionController {
 
-  private final SubscriptionService subscriptionService;
-
-  public SubscriptionController(SubscriptionService subscriptionService) {
-    this.subscriptionService = subscriptionService;
-  }
+  @Resource
+  private SubscriptionService subscriptionService;
 
   @PostMapping
   public ApiResponse<SubscriptionVO> subscribe(@Valid @RequestBody SubscriptionRequest request) {
