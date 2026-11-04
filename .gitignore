@@ -3,8 +3,10 @@
 
 # Dependencies and generated output
 node_modules/
+.m2/
 dist/
 build/
+target/
 
 # Logs and runtime files
 *.log

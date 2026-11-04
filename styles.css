@@ -185,6 +185,7 @@ body:not(.auth-locked) .login-screen {
 }
 
 .login-submit,
+.register-submit,
 .guest-submit {
   min-height: 46px;
   border: 0;
@@ -199,6 +200,7 @@ body:not(.auth-locked) .login-screen {
   color: #fff;
 }
 
+.register-submit,
 .guest-submit {
   margin-top: 12px;
   border: 1px solid var(--line);
@@ -622,6 +624,16 @@ h2 {
   color: #fff;
 }
 
+.empty-state {
+  grid-column: 1 / -1;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--muted);
+  text-align: center;
+}
+
 .band {
   background: #edf2e8;
 }
@@ -850,9 +862,25 @@ h2 {
   cursor: pointer;
 }
 
-.stepper span {
-  min-width: 32px;
+.stepper input {
+  width: 48px;
+  height: 34px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  background: var(--surface-strong);
+  color: var(--ink);
   text-align: center;
+}
+
+.stepper input:focus {
+  outline: 2px solid rgba(63, 125, 76, 0.2);
+  outline-offset: -2px;
+}
+
+.stepper input::-webkit-outer-spin-button,
+.stepper input::-webkit-inner-spin-button {
+  margin: 0;
 }
 
 .cart-empty {

@@ -1,99 +1,16 @@
-const products = [
-  {
-    id: "chicken-freeze",
-    name: "原切鸡肉冻干",
-    pet: "猫狗通用",
-    flavor: "鸡胸肉",
-    price: 39,
-    rating: "4.9",
-    categories: ["cat", "dog", "freeze"],
-    tags: ["热销", "高蛋白"],
-    image: "https://images.unsplash.com/photo-1601758125946-6ec2ef64daf8?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    id: "beef-training",
-    name: "牛肉训练奖励粒",
-    pet: "狗狗适用",
-    flavor: "牛肉南瓜",
-    price: 32,
-    rating: "4.8",
-    categories: ["dog", "training"],
-    tags: ["训练", "低脂"],
-    image: "https://images.unsplash.com/photo-1568640347023-a616a30bc3bd?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    id: "cod-strip",
-    name: "鳕鱼鲜肉条",
-    pet: "猫咪适用",
-    flavor: "深海鳕鱼",
-    price: 28,
-    rating: "4.7",
-    categories: ["cat", "training"],
-    tags: ["无谷", "新品"],
-    image: "https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    id: "dental-stick",
-    name: "薄荷洁齿棒",
-    pet: "狗狗适用",
-    flavor: "鸡肉薄荷",
-    price: 45,
-    rating: "4.8",
-    categories: ["dog", "dental"],
-    tags: ["洁齿", "清新"],
-    image: "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    id: "duck-freeze",
-    name: "鸭肉梨粒冻干",
-    pet: "猫狗通用",
-    flavor: "鸭肉雪梨",
-    price: 42,
-    rating: "4.9",
-    categories: ["cat", "dog", "freeze"],
-    tags: ["低敏", "热销"],
-    image: "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    id: "salmon-bites",
-    name: "三文鱼软粒",
-    pet: "猫咪适用",
-    flavor: "三文鱼",
-    price: 36,
-    rating: "4.6",
-    categories: ["cat", "training"],
-    tags: ["亮毛", "小颗粒"],
-    image: "https://images.unsplash.com/photo-1596854407944-bf87f6fdd49e?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    id: "goat-milk",
-    name: "羊奶酪脆块",
-    pet: "猫狗通用",
-    flavor: "羊奶酪",
-    price: 30,
-    rating: "4.7",
-    categories: ["cat", "dog"],
-    tags: ["补钙", "香脆"],
-    image: "https://images.unsplash.com/photo-1583511655826-05700d52f4d9?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    id: "rabbit-dental",
-    name: "兔肉洁齿小棒",
-    pet: "小型犬适用",
-    flavor: "兔肉胡萝卜",
-    price: 49,
-    rating: "4.8",
-    categories: ["dog", "dental"],
-    tags: ["洁齿", "低敏"],
-    image: "https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?auto=format&fit=crop&w=700&q=80",
-  },
-];
+const API_BASE_URL = localStorage.getItem("pawbites-api-base") || "http://localhost:8080/api";
+const AUTH_STORAGE_KEY = "pawbites-auth";
+const GUEST_STORAGE_KEY = "pawbites-guest-id";
 
+const categoryGrid = document.querySelector(".category-grid");
 const productGrid = document.querySelector("#productGrid");
-const categoryButtons = document.querySelectorAll(".category-card");
+const bundleGrid = document.querySelector(".bundle-grid");
+const reviewGrid = document.querySelector(".review-grid");
 const loginScreen = document.querySelector(".login-screen");
 const loginForm = document.querySelector("#loginForm");
 const usernameInput = document.querySelector("#username");
+const passwordInput = document.querySelector("#password");
+const registerButton = document.querySelector("#registerSubmit");
 const guestLoginButton = document.querySelector("#guestLogin");
 const loginMessage = document.querySelector(".login-message");
 const accountButton = document.querySelector(".account-button");
@@ -115,12 +32,9 @@ const subscribeForm = document.querySelector(".subscribe-form");
 const subscribeInput = document.querySelector("#email");
 const subscribeMessage = document.querySelector(".subscribe-message");
 
-const AUTH_STORAGE_KEY = "pawbites-auth";
-const CART_STORAGE_KEY = "pawbites-cart";
-const SUBSCRIBE_STORAGE_KEY = "pawbites-subscribers";
-const cart = new Map();
-let activeFilter = "all";
 let currentUser = null;
+let activeFilter = "all";
+let cartState = { items: [], count: 0, totalAmount: 0 };
 let toastTimer;
 
 function readStoredValue(key, fallbackValue = null) {
@@ -144,20 +58,88 @@ function removeStoredValue(key) {
   try {
     localStorage.removeItem(key);
   } catch {
-    // Ignore storage failures; the in-memory state still works.
+    // Ignore storage failures; the current page state still works.
   }
 }
 
-function getProduct(id) {
-  return products.find((item) => item.id === id);
+function getGuestId() {
+  const existingGuestId = localStorage.getItem(GUEST_STORAGE_KEY);
+  if (existingGuestId) return existingGuestId;
+
+  const guestId = globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : `guest-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  localStorage.setItem(GUEST_STORAGE_KEY, guestId);
+  return guestId;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function formatPrice(value) {
-  return `¥${value}`;
+  return `¥${Number(value || 0).toFixed(0)}`;
+}
+
+function normalizeError(error) {
+  if (error instanceof TypeError) {
+    return "无法连接后端服务，请确认 Spring Boot 已启动。";
+  }
+  return error.message || "操作失败，请稍后重试。";
+}
+
+async function apiRequest(path, options = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+
+  if (currentUser?.token) {
+    headers.Authorization = `Bearer ${currentUser.token}`;
+  } else if (currentUser?.mode === "guest") {
+    headers["X-Guest-Id"] = currentUser.guestId || getGuestId();
+  }
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
+  } catch (error) {
+    throw new Error(normalizeError(error));
+  }
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || payload?.code !== 0) {
+    throw new Error(payload?.message || `请求失败：${response.status}`);
+  }
+  return payload.data;
+}
+
+function setLoginLoading(isLoading) {
+  loginForm.querySelectorAll("input, button").forEach((element) => {
+    element.disabled = isLoading;
+  });
+}
+
+function showToast(message) {
+  clearTimeout(toastTimer);
+  toast.textContent = message;
+  toast.classList.add("show");
+  toastTimer = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 1800);
 }
 
 function updateAccount() {
-  if (!accountName || !currentUser) return;
+  if (!currentUser) return;
   accountName.textContent = currentUser.displayName;
   accountButton.setAttribute("aria-label", `退出${currentUser.displayName}`);
 }
@@ -189,44 +171,121 @@ function lockPage(message = "") {
   loginScreen.setAttribute("aria-hidden", "false");
   loginMessage.textContent = message;
   usernameInput.focus();
+  renderCart({ items: [], count: 0, totalAmount: 0 });
 }
 
-function restoreAuth() {
+function toAuthProfile(authResponse) {
+  const user = authResponse.user;
+  return {
+    mode: "user",
+    token: authResponse.token,
+    user,
+    displayName: user.nickname || user.username,
+  };
+}
+
+async function restoreAuth() {
   const savedProfile = readStoredValue(AUTH_STORAGE_KEY);
-  if (!savedProfile || !savedProfile.displayName) return;
-  unlockPage(savedProfile);
+  if (!savedProfile) return;
+
+  if (savedProfile.mode === "guest") {
+    unlockPage({
+      mode: "guest",
+      guestId: savedProfile.guestId || getGuestId(),
+      displayName: "游客模式",
+    });
+    loadStorefrontData();
+    return;
+  }
+
+  if (!savedProfile.token) {
+    removeStoredValue(AUTH_STORAGE_KEY);
+    return;
+  }
+
+  currentUser = savedProfile;
+  try {
+    const user = await apiRequest("/auth/me");
+    unlockPage({
+      ...savedProfile,
+      user,
+      displayName: user.nickname || user.username,
+    });
+    loadStorefrontData();
+  } catch {
+    lockPage("登录状态已失效，请重新登录。");
+  }
 }
 
-function submitLogin(event) {
+async function submitLogin(event) {
   event.preventDefault();
   if (!loginForm.checkValidity()) {
     loginForm.reportValidity();
     return;
   }
 
-  const displayName = usernameInput.value.trim();
-  if (!displayName) {
-    loginMessage.textContent = "请输入有效账号。";
-    usernameInput.focus();
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value;
+  if (!username || !password) {
+    loginMessage.textContent = "请输入有效账号和密码。";
     return;
   }
 
-  unlockPage(
-    {
-      mode: "user",
-      displayName,
-    },
-    {
-      focusHome: true,
-      showWelcome: true,
-    }
-  );
+  setLoginLoading(true);
+  loginMessage.textContent = "正在登录...";
+  try {
+    const authResponse = await apiRequest("/auth/login", {
+      method: "POST",
+      body: { username, password },
+    });
+    unlockPage(toAuthProfile(authResponse), { focusHome: true, showWelcome: true });
+    await loadStorefrontData();
+  } catch (error) {
+    loginMessage.textContent = normalizeError(error);
+  } finally {
+    setLoginLoading(false);
+  }
 }
 
-function enterAsGuest() {
+async function registerAccount() {
+  if (!loginForm.checkValidity()) {
+    loginForm.reportValidity();
+    return;
+  }
+
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value;
+  if (!username || !password) {
+    loginMessage.textContent = "请输入有效账号和密码。";
+    return;
+  }
+
+  setLoginLoading(true);
+  loginMessage.textContent = "正在创建账号...";
+  try {
+    const authResponse = await apiRequest("/auth/register", {
+      method: "POST",
+      body: {
+        username,
+        password,
+        email: username.includes("@") ? username : null,
+        nickname: username,
+      },
+    });
+    unlockPage(toAuthProfile(authResponse), { focusHome: true, showWelcome: true });
+    await loadStorefrontData();
+  } catch (error) {
+    loginMessage.textContent = normalizeError(error);
+  } finally {
+    setLoginLoading(false);
+  }
+}
+
+async function enterAsGuest() {
   unlockPage(
     {
       mode: "guest",
+      guestId: getGuestId(),
       displayName: "游客模式",
     },
     {
@@ -234,31 +293,68 @@ function enterAsGuest() {
       showWelcome: true,
     }
   );
+
+  try {
+    await loadStorefrontData();
+  } catch (error) {
+    showToast(normalizeError(error));
+  }
 }
 
-function renderProducts() {
-  const visibleProducts =
-    activeFilter === "all"
-      ? products
-      : products.filter((product) => product.categories.includes(activeFilter));
+async function logout() {
+  if (currentUser?.token) {
+    apiRequest("/auth/logout", { method: "POST" }).catch(() => {});
+  }
+  lockPage("已退出登录，可以重新进入。");
+}
 
-  productGrid.innerHTML = visibleProducts
+function renderCategories(categories = []) {
+  const safeCategories = categories.length
+    ? categories
+    : [{ code: "all", name: "全部", description: "今日精选" }];
+
+  categoryGrid.innerHTML = safeCategories
+    .map((category) => {
+      const code = category.code || "all";
+      const isActive = code === activeFilter;
+      return `
+        <button class="category-card ${isActive ? "active" : ""}" type="button" data-filter="${escapeHtml(code)}" role="listitem" aria-pressed="${isActive}">
+          <span>${escapeHtml(category.name)}</span>
+          <small>${escapeHtml(category.description)}</small>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+async function loadCategories() {
+  const categories = await apiRequest("/categories");
+  renderCategories(categories);
+}
+
+function renderProducts(products = []) {
+  if (!products.length) {
+    productGrid.innerHTML = `<div class="empty-state">暂时没有符合条件的商品。</div>`;
+    return;
+  }
+
+  productGrid.innerHTML = products
     .map(
       (product) => `
         <article class="product-card">
           <div class="product-image">
-            <img src="${product.image}" alt="${product.name}" loading="lazy">
+            <img src="${escapeHtml(product.imageUrl)}" alt="${escapeHtml(product.name)}" loading="lazy">
             <div class="tag-row">
-              ${product.tags.map((tag) => `<span class="tag">${tag}</span>`).join("")}
+              ${(product.tags || []).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
             </div>
           </div>
           <div class="product-info">
-            <h3>${product.name}</h3>
-            <div class="meta">${product.pet} · ${product.flavor}</div>
-            <div class="rating">★ ${product.rating} / 5.0</div>
+            <h3>${escapeHtml(product.name)}</h3>
+            <div class="meta">${escapeHtml(product.petType)} · ${escapeHtml(product.flavor)}</div>
+            <div class="rating">★ ${escapeHtml(product.rating)} / 5.0</div>
             <div class="price-row">
               <span class="price">${formatPrice(product.price)}</span>
-              <button type="button" data-add="${product.id}" aria-label="将${product.name}加入购物车">加入购物车</button>
+              <button type="button" data-add="${product.id}" aria-label="将${escapeHtml(product.name)}加入购物车">加入购物车</button>
             </div>
           </div>
         </article>
@@ -267,96 +363,229 @@ function renderProducts() {
     .join("");
 }
 
-function restoreCart() {
-  const savedCart = readStoredValue(CART_STORAGE_KEY, {});
-  Object.entries(savedCart).forEach(([id, quantity]) => {
-    const normalizedQuantity = Number(quantity);
-    if (getProduct(id) && Number.isInteger(normalizedQuantity) && normalizedQuantity > 0) {
-      cart.set(id, normalizedQuantity);
-    }
+async function loadProducts() {
+  productGrid.innerHTML = `<div class="empty-state">商品加载中...</div>`;
+  const params = new URLSearchParams({
+    page: "1",
+    size: "20",
+    category: activeFilter,
   });
+  const result = await apiRequest(`/products?${params.toString()}`);
+  renderProducts(result.records || []);
 }
 
-function persistCart() {
-  writeStoredValue(CART_STORAGE_KEY, Object.fromEntries(cart));
+function renderBundles(bundles = []) {
+  if (!bundles.length) {
+    bundleGrid.innerHTML = `<div class="empty-state">暂无套餐。</div>`;
+    return;
+  }
+
+  bundleGrid.innerHTML = bundles
+    .map(
+      (bundle) => `
+        <article class="bundle-card">
+          <span class="discount">${escapeHtml(bundle.discountLabel)}</span>
+          <h3>${escapeHtml(bundle.name)}</h3>
+          <p>${escapeHtml(bundle.description)}</p>
+          <strong>${formatPrice(bundle.price)}</strong>
+        </article>
+      `
+    )
+    .join("");
 }
 
-function updateCart() {
-  const entries = [...cart.entries()];
-  const count = entries.reduce((sum, [, quantity]) => sum + quantity, 0);
-  const total = entries.reduce((sum, [id, quantity]) => {
-    const product = getProduct(id);
-    return product ? sum + product.price * quantity : sum;
-  }, 0);
+async function loadBundles() {
+  const bundles = await apiRequest("/bundles");
+  renderBundles(bundles);
+}
 
-  cartCount.textContent = count;
-  cartTotal.textContent = formatPrice(total);
-  cartButton.setAttribute("aria-label", count > 0 ? `打开购物车，共${count}件商品` : "打开购物车");
-  cartEmpty.hidden = entries.length > 0;
-  clearCartButton.disabled = entries.length === 0;
-  checkoutButton.disabled = entries.length === 0;
-  persistCart();
+function renderReviews(reviews = []) {
+  if (!reviews.length) {
+    reviewGrid.innerHTML = `<div class="empty-state">暂无评价。</div>`;
+    return;
+  }
 
-  cartItems.innerHTML = entries
-    .map(([id, quantity]) => {
-      const product = getProduct(id);
-      if (!product) return "";
-      return `
+  reviewGrid.innerHTML = reviews
+    .map(
+      (review) => `
+        <article class="review-card">
+          <img src="${escapeHtml(review.avatarUrl)}" alt="${escapeHtml(review.petName || review.buyerName)}头像" loading="lazy" />
+          <p>“${escapeHtml(review.content)}”</p>
+          <strong>${escapeHtml(review.petName || review.buyerName)} · ${escapeHtml(review.petBreed)}</strong>
+          <span>购买：${escapeHtml(review.purchasedProduct)}</span>
+        </article>
+      `
+    )
+    .join("");
+}
+
+async function loadReviews() {
+  const reviews = await apiRequest("/reviews");
+  renderReviews(reviews);
+}
+
+function renderCart(cart) {
+  cartState = cart || { items: [], count: 0, totalAmount: 0 };
+  const items = cartState.items || [];
+
+  cartCount.textContent = cartState.count || 0;
+  cartTotal.textContent = formatPrice(cartState.totalAmount);
+  cartButton.setAttribute("aria-label", cartState.count > 0 ? `打开购物车，共${cartState.count}件商品` : "打开购物车");
+  cartEmpty.hidden = items.length > 0;
+  clearCartButton.disabled = items.length === 0;
+  checkoutButton.disabled = items.length === 0;
+
+  cartItems.innerHTML = items
+    .map(
+      (item) => `
         <article class="cart-item">
-          <img src="${product.image}" alt="${product.name}">
+          <img src="${escapeHtml(item.productImage)}" alt="${escapeHtml(item.productName)}">
           <div>
-            <h3>${product.name}</h3>
+            <h3>${escapeHtml(item.productName)}</h3>
             <div class="cart-line">
-              <span>${formatPrice(product.price)}</span>
-              <div class="stepper" aria-label="${product.name}数量">
-                <button type="button" data-decrease="${id}" aria-label="减少${product.name}数量">−</button>
-                <span>${quantity}</span>
-                <button type="button" data-increase="${id}" aria-label="增加${product.name}数量">+</button>
+              <span>${formatPrice(item.price)}</span>
+              <div class="stepper" aria-label="${escapeHtml(item.productName)}数量">
+                <button type="button" data-decrease="${item.productId}" aria-label="减少${escapeHtml(item.productName)}数量">−</button>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputmode="numeric"
+                  value="${item.quantity}"
+                  data-quantity="${item.productId}"
+                  aria-label="${escapeHtml(item.productName)}数量"
+                />
+                <button type="button" data-increase="${item.productId}" aria-label="增加${escapeHtml(item.productName)}数量">+</button>
               </div>
             </div>
           </div>
         </article>
-      `;
-    })
+      `
+    )
     .join("");
 }
 
-function showToast(message) {
-  clearTimeout(toastTimer);
-  toast.textContent = message;
-  toast.classList.add("show");
-  toastTimer = setTimeout(() => {
-    toast.classList.remove("show");
-  }, 1800);
+async function loadCart() {
+  const cart = await apiRequest("/cart");
+  renderCart(cart);
 }
 
-function addToCart(id) {
-  const product = getProduct(id);
-  if (!product) return;
-  cart.set(id, (cart.get(id) || 0) + 1);
-  updateCart();
-  showToast(`${product.name}已加入购物车`);
+function findCartItem(productId) {
+  return (cartState.items || []).find((item) => String(item.productId) === String(productId));
 }
 
-function clearCart() {
-  if (cart.size === 0) return;
-  cart.clear();
-  updateCart();
-  showToast("购物车已清空");
+async function addToCart(productId) {
+  try {
+    const cart = await apiRequest("/cart/items", {
+      method: "POST",
+      body: {
+        productId: Number(productId),
+        quantity: 1,
+      },
+    });
+    renderCart(cart);
+    const item = findCartItem(productId);
+    showToast(`${item?.productName || "商品"}已加入购物车`);
+  } catch (error) {
+    showToast(normalizeError(error));
+  }
 }
 
-function checkoutCart() {
-  if (cart.size === 0) {
+async function changeCartQuantity(productId, nextQuantity) {
+  const normalizedQuantity = Number(nextQuantity);
+  if (!Number.isInteger(normalizedQuantity)) {
+    renderCart(cartState);
+    showToast("请输入有效数量");
+    return;
+  }
+
+  try {
+    const cart =
+      normalizedQuantity <= 0
+        ? await apiRequest(`/cart/items/${productId}`, { method: "DELETE" })
+        : await apiRequest(`/cart/items/${productId}`, {
+            method: "PUT",
+            body: { quantity: normalizedQuantity },
+          });
+    renderCart(cart);
+  } catch (error) {
+    renderCart(cartState);
+    showToast(normalizeError(error));
+  }
+}
+
+function submitQuantityInput(input) {
+  const item = findCartItem(input.dataset.quantity);
+  if (!item) return;
+
+  const value = input.value.trim();
+  if (!value) {
+    input.value = item.quantity;
+    showToast("请输入商品数量");
+    return;
+  }
+
+  const nextQuantity = Number(value);
+  if (!Number.isInteger(nextQuantity) || nextQuantity < 1) {
+    input.value = item.quantity;
+    showToast("数量必须是大于 0 的整数");
+    return;
+  }
+
+  if (nextQuantity !== item.quantity) {
+    changeCartQuantity(item.productId, nextQuantity);
+  }
+}
+
+async function clearCart() {
+  if (!cartState.items?.length) return;
+
+  try {
+    await apiRequest("/cart", { method: "DELETE" });
+    renderCart({ items: [], count: 0, totalAmount: 0 });
+    showToast("购物车已清空");
+  } catch (error) {
+    showToast(normalizeError(error));
+  }
+}
+
+async function checkoutCart() {
+  if (!cartState.items?.length) {
     openCart();
     showToast("购物车为空，先挑选商品吧");
     return;
   }
 
-  const count = [...cart.values()].reduce((sum, quantity) => sum + quantity, 0);
-  cart.clear();
-  updateCart();
-  closeCart();
-  showToast(`订单已提交，共${count}件商品`);
+  try {
+    const order = await apiRequest("/orders", { method: "POST" });
+    renderCart({ items: [], count: 0, totalAmount: 0 });
+    closeCart();
+    showToast(`订单${order.orderNo}已提交`);
+  } catch (error) {
+    showToast(normalizeError(error));
+  }
+}
+
+async function loadStorefrontData() {
+  await Promise.all([
+    loadCategories().catch((error) => {
+      renderCategories();
+      showToast(normalizeError(error));
+    }),
+    loadProducts().catch((error) => {
+      productGrid.innerHTML = `<div class="empty-state">${escapeHtml(normalizeError(error))}</div>`;
+    }),
+    loadBundles().catch((error) => {
+      bundleGrid.innerHTML = `<div class="empty-state">${escapeHtml(normalizeError(error))}</div>`;
+    }),
+    loadReviews().catch((error) => {
+      reviewGrid.innerHTML = `<div class="empty-state">${escapeHtml(normalizeError(error))}</div>`;
+    }),
+    loadCart().catch((error) => {
+      renderCart({ items: [], count: 0, totalAmount: 0 });
+      showToast(normalizeError(error));
+    }),
+  ]);
 }
 
 function openCart() {
@@ -378,20 +607,28 @@ function closeMenu() {
   menuToggle.setAttribute("aria-label", "打开导航菜单");
 }
 
-categoryButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    activeFilter = button.dataset.filter;
-    categoryButtons.forEach((item) => item.classList.toggle("active", item === button));
-    categoryButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
-    renderProducts();
+categoryGrid.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-filter]");
+  if (!button) return;
+
+  activeFilter = button.dataset.filter;
+  categoryGrid.querySelectorAll(".category-card").forEach((item) => {
+    const isActive = item === button;
+    item.classList.toggle("active", isActive);
+    item.setAttribute("aria-pressed", String(isActive));
   });
+
+  try {
+    await loadProducts();
+  } catch (error) {
+    productGrid.innerHTML = `<div class="empty-state">${escapeHtml(normalizeError(error))}</div>`;
+  }
 });
 
 loginForm.addEventListener("submit", submitLogin);
+registerButton.addEventListener("click", registerAccount);
 guestLoginButton.addEventListener("click", enterAsGuest);
-accountButton.addEventListener("click", () => {
-  lockPage("已退出登录，可以重新进入。");
-});
+accountButton.addEventListener("click", logout);
 
 productGrid.addEventListener("click", (event) => {
   const button = event.target.closest("[data-add]");
@@ -404,22 +641,31 @@ cartItems.addEventListener("click", (event) => {
   const decrease = event.target.closest("[data-decrease]");
 
   if (increase) {
-    cart.set(increase.dataset.increase, (cart.get(increase.dataset.increase) || 0) + 1);
-  }
-
-  if (decrease) {
-    const id = decrease.dataset.decrease;
-    const nextQuantity = (cart.get(id) || 0) - 1;
-    if (nextQuantity <= 0) {
-      cart.delete(id);
-    } else {
-      cart.set(id, nextQuantity);
+    const item = findCartItem(increase.dataset.increase);
+    if (item) {
+      changeCartQuantity(item.productId, item.quantity + 1);
     }
   }
 
-  if (increase || decrease) {
-    updateCart();
+  if (decrease) {
+    const item = findCartItem(decrease.dataset.decrease);
+    if (item) {
+      changeCartQuantity(item.productId, item.quantity - 1);
+    }
   }
+});
+
+cartItems.addEventListener("change", (event) => {
+  const input = event.target.closest("[data-quantity]");
+  if (!input) return;
+  submitQuantityInput(input);
+});
+
+cartItems.addEventListener("keydown", (event) => {
+  const input = event.target.closest("[data-quantity]");
+  if (!input || event.key !== "Enter") return;
+  event.preventDefault();
+  input.blur();
 });
 
 cartButton.addEventListener("click", openCart);
@@ -434,11 +680,9 @@ menuToggle.addEventListener("click", () => {
   menuToggle.setAttribute("aria-label", isOpen ? "关闭导航菜单" : "打开导航菜单");
 });
 
-navLinks.addEventListener("click", () => {
-  closeMenu();
-});
+navLinks.addEventListener("click", closeMenu);
 
-subscribeForm.addEventListener("submit", (event) => {
+subscribeForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!subscribeForm.checkValidity()) {
     subscribeForm.reportValidity();
@@ -446,24 +690,18 @@ subscribeForm.addEventListener("submit", (event) => {
   }
 
   const email = subscribeInput.value.trim().toLowerCase();
-  if (!email) {
-    subscribeMessage.textContent = "请输入邮箱后再订阅。";
-    subscribeInput.focus();
-    return;
+  subscribeMessage.textContent = "正在订阅...";
+  try {
+    await apiRequest("/subscriptions", {
+      method: "POST",
+      body: { email },
+    });
+    subscribeMessage.textContent = "订阅成功，新人券稍后发送到邮箱。";
+    subscribeForm.reset();
+    showToast("订阅成功");
+  } catch (error) {
+    subscribeMessage.textContent = normalizeError(error);
   }
-
-  const savedSubscribers = readStoredValue(SUBSCRIBE_STORAGE_KEY, []);
-  const subscribers = Array.isArray(savedSubscribers) ? savedSubscribers : [];
-  const alreadySubscribed = subscribers.includes(email);
-
-  if (!alreadySubscribed) {
-    subscribers.push(email);
-    writeStoredValue(SUBSCRIBE_STORAGE_KEY, subscribers);
-  }
-
-  subscribeMessage.textContent = alreadySubscribed ? "这个邮箱已经订阅过优惠。" : "订阅成功，新人券稍后发送到邮箱。";
-  subscribeForm.reset();
-  showToast(alreadySubscribed ? "邮箱已订阅" : "订阅成功");
 });
 
 document.addEventListener("keydown", (event) => {
@@ -473,11 +711,4 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-categoryButtons.forEach((button) => {
-  button.setAttribute("aria-pressed", String(button.classList.contains("active")));
-});
-
 restoreAuth();
-restoreCart();
-renderProducts();
-updateCart();
