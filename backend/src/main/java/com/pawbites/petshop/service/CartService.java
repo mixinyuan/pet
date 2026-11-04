@@ -15,7 +15,8 @@ public interface CartService extends IService<Cart> {
 
   /**
    * 查询购物车视图
-   * <p>购物车不存在时按当前身份自动创建空购物车。</p>
+   * <p>查询为只读操作、不创建购物车；购物车不存在时直接返回空购物车视图
+   * （items 为空、count 为 0、totalAmount 为 0）。</p>
    *
    * @param userId   登录用户 id（游客身份为 null）
    * @param guestId  游客标识（登录身份为 null）
@@ -79,4 +80,15 @@ public interface CartService extends IService<Cart> {
    * @throws BusinessException 既无 userId 也无 guestId（401）
    */
   Cart resolveCart(Long userId, String guestId, boolean createIfMissing);
+
+  /**
+   * 对购物车行加排他锁（供订单模块跨模块调用）
+   * <p>通过 SELECT ... FOR UPDATE 对 cart 行加排他锁，必须在其外层事务内调用，
+   * 用于下单流程的串行化：锁持有期间其他事务无法同时锁定/修改同一购物车，防止并发下单超卖。</p>
+   *
+   * @param cartId 购物车 id
+   * @return 加锁后的购物车实体
+   * @throws BusinessException 购物车不存在（404）
+   */
+  Cart lockCart(Long cartId);
 }

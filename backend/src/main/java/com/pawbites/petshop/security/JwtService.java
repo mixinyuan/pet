@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -47,6 +48,23 @@ public class JwtService {
   /** 令牌有效期（小时），来自配置项 app.jwt.expire-hours。 */
   @Value("${app.jwt.expire-hours}")
   private long expireHours;
+
+  /**
+   * 启动期配置校验（fail-fast）：签名密钥为空白或 UTF-8 字节数不足 32、
+   * 或令牌有效期不足 1 小时，均立即抛出 {@link IllegalStateException} 终止启动，
+   * 避免应用携带弱密钥/非法有效期进入运行态后才暴露问题。
+   *
+   * @throws IllegalStateException 密钥未配置或过短、有效期非法时抛出，启动即失败
+   */
+  @PostConstruct
+  public void validateConfiguration() {
+    if (secret == null || secret.isBlank() || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+      throw new IllegalStateException("JWT secret 未配置或过短：请设置环境变量 JWT_SECRET（至少 32 字节）");
+    }
+    if (expireHours < 1) {
+      throw new IllegalStateException("JWT 有效期配置不合法：请设置环境变量 JWT_EXPIRE_HOURS（app.jwt.expire-hours 至少为 1 小时，当前 " + expireHours + "）");
+    }
+  }
 
   /**
    * 为指定用户签发 JWT。

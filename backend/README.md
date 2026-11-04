@@ -14,10 +14,21 @@ CREATE DATABASE pawbites DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_c
 
 ```powershell
 cd E:\pet\backend
+$env:JWT_SECRET="<your-secret-of-at-least-32-bytes>"
+$env:DB_URL="jdbc:mysql://localhost:3306/pawbites?useSSL=false&serverTimezone=Asia/Shanghai"
 $env:DB_USERNAME="root"
 $env:DB_PASSWORD="root"
 mvn spring-boot:run
 ```
+
+Environment variables:
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `JWT_SECRET` | Yes | Secret used to sign JWT tokens. Must be at least 32 bytes long; the application fails to start if it is missing or too short. |
+| `DB_URL` | Yes | JDBC URL of the MySQL database (e.g. `jdbc:mysql://localhost:3306/pawbites?useSSL=false&serverTimezone=Asia/Shanghai`). |
+| `DB_USERNAME` | Yes | MySQL username. |
+| `DB_PASSWORD` | Yes | MySQL password. |
 
 Flyway runs the schema and seed migrations automatically.
 
@@ -48,9 +59,9 @@ DELETE /api/cart/items/{productId}
 DELETE /api/cart
 
 POST   /api/orders
-GET    /api/orders
+GET    /api/orders?page=1&size=20
 GET    /api/orders/{id}
-PUT    /api/orders/{id}/cancel
+POST   /api/orders/{id}/cancel
 
 POST   /api/subscriptions
 ```

@@ -32,8 +32,8 @@ import com.pawbites.petshop.vo.product.ProductVO;
 /**
  * 商品服务实现
  * <p>listProducts 先按分类 code 查有效分类并经 product_category_rel 解析出商品 id 集合，
- * 再组合状态/分类/关键字（名称、口味、宠物类型 like）条件分页查询，按评分降序，
- * 页码从 1 起、size 上限 100；enrichProducts 批量装载分类 code 与标签名，避免逐条目查询。</p>
+ * 再组合状态/分类/关键字（名称、口味、宠物类型 like，通配符经 escapeLike 转义）条件分页查询，按评分降序，
+ * 页码 clamp 到 [1, 10000]（防深分页）、size 上限 100；enrichProducts 批量装载分类 code 与标签名，避免逐条目查询。</p>
  */
 @Service
 public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> implements ProductService {
@@ -53,6 +53,10 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
 
   @Override
   public PageResult<ProductVO> listProducts(long page, long size, String categoryCode, String keyword) {
+    // 页码 clamp 到 [1, 10000]，防止深分页时偏移量溢出或拖垮查询
+    long safePage = Math.min(Math.max(page, 1), 10000L);
+    // 关键字转义 like 通配符后再参与匹配，避免 %、_、\ 被当作通配符解释
+    String likeKeyword = escapeLike(keyword);
     List<Long> categoryProductIds = null;
     if (StringUtils.hasText(categoryCode) && !"all".equalsIgnoreCase(categoryCode)) {
       Category category = categoryMapper.selectOne(Wrappers.<Category>lambdaQuery()
@@ -60,7 +64,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
           .eq(Category::getStatus, StatusConstants.ACTIVE)
           .last("LIMIT 1"));
       if (category == null) {
-        return new PageResult<>(List.of(), 0, page, size);
+        return new PageResult<>(List.of(), 0, safePage, size);
       }
       categoryProductIds = productCategoryRelMapper.selectList(Wrappers.<ProductCategoryRel>lambdaQuery()
               .eq(ProductCategoryRel::getCategoryId, category.getId()))
@@ -69,21 +73,21 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
           .distinct()
           .toList();
       if (categoryProductIds.isEmpty()) {
-        return new PageResult<>(List.of(), 0, page, size);
+        return new PageResult<>(List.of(), 0, safePage, size);
       }
     }
 
     IPage<Product> productPage = baseMapper.selectPage(
-        Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 100)),
+        Page.of(safePage, Math.min(Math.max(size, 1), 100)),
         Wrappers.<Product>lambdaQuery()
             .eq(Product::getStatus, StatusConstants.ACTIVE)
             .in(categoryProductIds != null, Product::getId, categoryProductIds)
-            .and(StringUtils.hasText(keyword), wrapper -> wrapper
-                .like(Product::getName, keyword)
+            .and(StringUtils.hasText(likeKeyword), wrapper -> wrapper
+                .like(Product::getName, likeKeyword)
                 .or()
-                .like(Product::getFlavor, keyword)
+                .like(Product::getFlavor, likeKeyword)
                 .or()
-                .like(Product::getPetType, keyword))
+                .like(Product::getPetType, likeKeyword))
             .orderByDesc(Product::getRating)
             .orderByDesc(Product::getId)
     );
@@ -167,5 +171,13 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             ProductTagRel::getProductId,
             Collectors.mapping(rel -> tags.get(rel.getTagId()), Collectors.filtering(StringUtils::hasText, Collectors.toList()))
         ));
+  }
+
+  /** 转义 like 通配符：在 \、%、_ 前加反斜杠，防止用户关键字被当作通配符解释 */
+  private static String escapeLike(String keyword) {
+    if (!StringUtils.hasText(keyword)) {
+      return keyword;
+    }
+    return keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
   }
 }

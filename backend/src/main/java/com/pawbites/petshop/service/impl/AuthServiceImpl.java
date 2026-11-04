@@ -22,11 +22,15 @@ import com.pawbites.petshop.vo.auth.UserProfileVO;
 /**
  * 认证服务实现
  * <p>注册走事务：先按用户名/邮箱查重，密码经 BCrypt 加密后入库；
- * 登录支持用户名或邮箱 + 密码比对，仅匹配有效状态用户；
+ * 登录支持用户名或邮箱 + 密码比对，仅匹配有效状态用户；用户不存在时同样执行一次
+ * 与占位密文的 BCrypt 比对再抛出统一错误，拉平响应时间以防账号枚举；
  * currentUser 按 id 回查并校验状态，失效时返回 401。</p>
  */
 @Service
 public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements AuthService {
+
+  /** 占位密文：用户不存在时用它执行一次等长的 BCrypt 比对以拉平响应时间，防止通过时间差枚举账号 */
+  private static final String DUMMY_HASH = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
 
   /** 密码加密器（BCrypt，负责密码加密与比对） */
   @Resource
@@ -58,6 +62,11 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements Au
     return buildAuthResponse(user);
   }
 
+  /**
+   * 用户名或邮箱 + 密码登录
+   * <p>仅匹配有效状态用户；用户不存在时也执行一次与占位密文的 BCrypt 比对再抛出统一错误，
+   * 使"账号不存在"与"密码错误"两条路径的响应耗时一致，防止账号枚举。</p>
+   */
   @Override
   public AuthResponse login(LoginRequest request) {
     String account = request.username().trim();
@@ -66,7 +75,12 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements Au
         .eq(User::getStatus, StatusConstants.ACTIVE)
         .last("LIMIT 1"));
 
-    if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+    if (user == null) {
+      // 用户不存在：先消耗一次等长的 BCrypt 比对再抛错，拉平响应时间以防账号枚举
+      passwordEncoder.matches(request.password(), DUMMY_HASH);
+      throw new BusinessException("账号或密码错误");
+    }
+    if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
       throw new BusinessException("账号或密码错误");
     }
     return buildAuthResponse(user);

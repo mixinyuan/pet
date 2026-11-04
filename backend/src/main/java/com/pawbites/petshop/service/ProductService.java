@@ -15,13 +15,13 @@ public interface ProductService extends IService<Product> {
 
   /**
    * 分页查询商品列表
-   * <p>仅返回有效商品；分类过滤经 product_category_rel 关联实现，关键字匹配名称/口味/宠物类型（like），
-   * 结果按评分降序排列，页码从 1 起、每页数量上限 100。</p>
+   * <p>仅返回有效商品；分类过滤经 product_category_rel 关联实现，关键字匹配名称/口味/宠物类型（like，
+   * 使用前对 \、%、_ 通配符做转义），结果按评分降序排列，页码从 1 起、上限 10000（防深分页），每页数量上限 100。</p>
    *
-   * @param page         页码（从 1 开始，小于 1 时按 1 处理）
+   * @param page         页码（从 1 开始，小于 1 时按 1 处理，大于 10000 时按 10000 处理）
    * @param size         每页数量（上限 100）
    * @param categoryCode 分类 code（null、"all" 或空白表示不过滤）
-   * @param keyword      搜索关键字（null 或空白表示不过滤）
+   * @param keyword      搜索关键字（null 或空白表示不过滤，参与 like 前会转义通配符）
    * @return 商品视图分页结果
    */
   PageResult<ProductVO> listProducts(long page, long size, String categoryCode, String keyword);

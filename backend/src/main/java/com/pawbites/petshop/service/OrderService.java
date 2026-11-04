@@ -3,12 +3,12 @@ package com.pawbites.petshop.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.pawbites.petshop.entity.OrderEntity;
 
+import com.pawbites.petshop.result.PageResult;
 import com.pawbites.petshop.vo.order.OrderVO;
-import java.util.List;
 
 /**
  * 订单服务
- * <p>面向登录用户与游客两类身份：从购物车勾选项创建订单、查询订单列表/详情、取消订单，均按 userId/guestId 归属过滤。</p>
+ * <p>面向登录用户与游客两类身份：从购物车勾选项创建订单、分页查询订单列表/查询订单详情/取消订单，均按 userId/guestId 归属过滤。</p>
  */
 public interface OrderService extends IService<OrderEntity> {
 
@@ -24,15 +24,17 @@ public interface OrderService extends IService<OrderEntity> {
   OrderVO createFromCart(Long userId, String guestId);
 
   /**
-   * 查询当前身份的订单列表
-   * <p>按 userId/guestId 归属过滤，按 id 倒序返回。</p>
+   * 分页查询当前身份的订单列表
+   * <p>按 userId/guestId 归属过滤，按 id 倒序分页返回；页码从 1 起，每页条数上限 100，越界自动收敛。</p>
    *
    * @param userId   登录用户 id（游客身份为 null）
    * @param guestId  游客标识（登录身份为 null）
-   * @return 订单视图列表
+   * @param page     页码（从 1 开始，小于 1 时按 1 处理）
+   * @param size     每页条数（1~100，越界时自动收敛）
+   * @return 订单分页结果（当前页数据列表与总记录数、分页信息）
    * @throws BusinessException 既无 userId 也无 guestId（401）
    */
-  List<OrderVO> listOrders(Long userId, String guestId);
+  PageResult<OrderVO> listOrders(Long userId, String guestId, long page, long size);
 
   /**
    * 查询订单详情

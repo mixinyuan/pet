@@ -33,6 +33,7 @@ public class CartController {
 
   /**
    * 查询当前购物车（GET /api/cart）
+   * <p>只读查询，不创建购物车；购物车不存在时返回空购物车（无条目、件数 0、总金额 0）。</p>
    *
    * @return 购物车详情（条目、件数、总金额）
    */

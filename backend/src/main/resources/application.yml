@@ -16,7 +16,7 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
   global-config:
     db-config:
       logic-delete-field: deleted
@@ -25,12 +25,12 @@ mybatis-plus:
 
 logging:
   level:
-    com.pawbites.petshop: debug
-    com.baomidou.mybatisplus: debug
+    com.pawbites.petshop: info
+    com.baomidou.mybatisplus: info
 
 app:
   jwt:
-    secret: ${JWT_SECRET:pawbites-dev-secret-please-change-before-production-2026}
+    secret: ${JWT_SECRET:}
     expire-hours: ${JWT_EXPIRE_HOURS:168}
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:*}

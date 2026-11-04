@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -28,8 +29,9 @@ import com.pawbites.petshop.vo.cart.CartVO;
 /**
  * 购物车服务实现
  * <p>写操作（加购/改量/删除/清空）均在事务中执行；加购前校验商品有效性与库存
- * （含与已有条目合并后的总量校验）；resolveCart 按 userId 优先、guestId 兜底定位购物车，按需创建；
- * 视图装配时批量加载商品并过滤已失效商品条目。</p>
+ * （含与已有条目合并后的总量校验），条目落库采用唯一索引 + 原子 upsert，消除“先查后写”竞态；
+ * resolveCart 按 userId 优先、guestId 兜底定位购物车，按需创建，并发首建冲突时兜底重查；
+ * 查询为只读操作，不创建购物车；视图装配时批量加载商品并过滤已失效商品条目。</p>
  */
 @Service
 public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements CartService {
@@ -43,7 +45,8 @@ public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements Ca
 
   @Override
   public CartVO getCart(Long userId, String guestId) {
-    Cart cart = resolveCart(userId, guestId, true);
+    // 查询无副作用：购物车不存在时不创建，直接返回空购物车视图
+    Cart cart = resolveCart(userId, guestId, false);
     return buildCartVO(cart);
   }
 
@@ -54,24 +57,14 @@ public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements Ca
     Cart cart = resolveCart(userId, guestId, true);
     int quantity = request.normalizedQuantity();
 
+    // 先查当前数量，校验合并后的总量不超库存，再交由 upsert 原子落库
     CartItem item = cartItemMapper.selectOne(Wrappers.<CartItem>lambdaQuery()
         .eq(CartItem::getCartId, cart.getId())
         .eq(CartItem::getProductId, product.getId())
         .last("LIMIT 1"));
-    int nextQuantity = quantity + (item == null ? 0 : item.getQuantity());
-    ensureStock(product, nextQuantity);
+    ensureStock(product, quantity + (item == null ? 0 : item.getQuantity()));
 
-    if (item == null) {
-      item = new CartItem();
-      item.setCartId(cart.getId());
-      item.setProductId(product.getId());
-      item.setQuantity(quantity);
-      item.setChecked(true);
-      cartItemMapper.insert(item);
-    } else {
-      item.setQuantity(nextQuantity);
-      cartItemMapper.updateById(item);
-    }
+    cartItemMapper.upsertItem(cart.getId(), product.getId(), quantity);
     return buildCartVO(cart);
   }
 
@@ -125,16 +118,38 @@ public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements Ca
       throw new BusinessException(401, "请先登录或提供游客标识");
     }
 
-    Cart cart = baseMapper.selectOne(userId != null
-        ? Wrappers.<Cart>lambdaQuery().eq(Cart::getUserId, userId).last("LIMIT 1")
-        : Wrappers.<Cart>lambdaQuery().eq(Cart::getGuestId, guestId).last("LIMIT 1"));
+    Cart cart = selectCartByIdentity(userId, guestId);
     if (cart == null && createIfMissing) {
       cart = new Cart();
       cart.setUserId(userId);
       cart.setGuestId(userId == null ? guestId : null);
-      baseMapper.insert(cart);
+      try {
+        baseMapper.insert(cart);
+      } catch (DuplicateKeyException e) {
+        // 并发首建双车时，唯一索引让后插入方失败；重查一次返回已存在的购物车
+        cart = selectCartByIdentity(userId, guestId);
+      }
     }
     return cart;
+  }
+
+  @Override
+  public Cart lockCart(Long cartId) {
+    if (cartId == null) {
+      throw new BusinessException(404, "购物车不存在");
+    }
+    Cart cart = baseMapper.selectByIdForUpdate(cartId);
+    if (cart == null) {
+      throw new BusinessException(404, "购物车不存在");
+    }
+    return cart;
+  }
+
+  /** 按身份定位已存在的购物车：userId 优先，guestId 兜底 */
+  private Cart selectCartByIdentity(Long userId, String guestId) {
+    return baseMapper.selectOne(userId != null
+        ? Wrappers.<Cart>lambdaQuery().eq(Cart::getUserId, userId).last("LIMIT 1")
+        : Wrappers.<Cart>lambdaQuery().eq(Cart::getGuestId, guestId).last("LIMIT 1"));
   }
 
   /** 组装购物车视图：批量加载条目对应商品，汇总总件数与总金额 */
