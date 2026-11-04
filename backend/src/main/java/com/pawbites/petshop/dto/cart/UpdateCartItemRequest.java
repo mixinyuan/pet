@@ -9,6 +9,8 @@ import jakarta.validation.constraints.NotNull;
  */
 public record UpdateCartItemRequest(
     /** 更新后的购买数量（必填，最小为 1） */
-    @NotNull @Min(1) Integer quantity
+    @NotNull
+    @Min(1)
+    Integer quantity
 ) {
 }

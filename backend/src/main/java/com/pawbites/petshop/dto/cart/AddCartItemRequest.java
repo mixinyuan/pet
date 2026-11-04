@@ -9,9 +9,11 @@ import jakarta.validation.constraints.NotNull;
  */
 public record AddCartItemRequest(
     /** 商品 ID */
-    @NotNull Long productId,
+    @NotNull
+    Long productId,
     /** 购买数量（最小为 1，可为空，为空时按 1 件计） */
-    @Min(1) Integer quantity
+    @Min(1)
+    Integer quantity
 ) {
   public int normalizedQuantity() {
     return quantity == null ? 1 : quantity;

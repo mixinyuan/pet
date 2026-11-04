@@ -9,6 +9,8 @@ import jakarta.validation.constraints.NotBlank;
  */
 public record SubscriptionRequest(
     /** 订阅邮箱（必填且格式须合法，服务端去除首尾空白并统一转小写） */
-    @NotBlank @Email String email
+    @NotBlank
+    @Email
+    String email
 ) {
 }

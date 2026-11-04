@@ -8,8 +8,10 @@ import jakarta.validation.constraints.NotBlank;
  */
 public record LoginRequest(
     /** 登录账号（用户名或邮箱） */
-    @NotBlank String username,
+    @NotBlank
+    String username,
     /** 登录密码（明文传输，服务端与 BCrypt 密文比对） */
-    @NotBlank String password
+    @NotBlank
+    String password
 ) {
 }
