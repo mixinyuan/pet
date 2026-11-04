@@ -1,0 +1,183 @@
+-- V4：补全所有表的表注释与字段注释
+-- 说明：V1 建表时未写 COMMENT，且 V1 已在既有库执行过（直接修改 V1 会导致 Flyway
+-- 校验和不一致、应用拒绝启动），因此通过本迁移以 ALTER TABLE ... MODIFY COLUMN 补注释。
+-- 注意：MODIFY COLUMN 必须完整重述原列定义（类型/非空/默认值/ON UPDATE），
+-- 本脚本各列定义与 V1 完全一致，仅追加 COMMENT，不改变任何结构与数据。
+
+-- ============ users 用户表 ============
+ALTER TABLE users
+  COMMENT='用户表（商城注册用户）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN username VARCHAR(64) NOT NULL COMMENT '用户名（登录账号，全局唯一）',
+  MODIFY COLUMN email VARCHAR(128) NULL COMMENT '邮箱（全局唯一，可空，登录时可作为账号使用）',
+  MODIFY COLUMN password_hash VARCHAR(128) NOT NULL COMMENT '密码哈希（BCrypt 加密存储，非明文）',
+  MODIFY COLUMN nickname VARCHAR(64) NULL COMMENT '昵称（未设置时默认同用户名，对外展示用）',
+  MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '账号状态（ACTIVE-正常 INACTIVE-停用）',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
+
+-- ============ category 商品分类表 ============
+ALTER TABLE category
+  COMMENT='商品分类表（前端按需求筛选的维度）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN code VARCHAR(40) NOT NULL COMMENT '分类编码（全局唯一，前端筛选与商品接口的 category 参数）',
+  MODIFY COLUMN name VARCHAR(64) NOT NULL COMMENT '分类名称（如：猫咪零食、冻干）',
+  MODIFY COLUMN description VARCHAR(255) NULL COMMENT '分类描述（卡片副标题文案）',
+  MODIFY COLUMN sort_order INT NOT NULL DEFAULT 0 COMMENT '排序权重（升序，越小越靠前）',
+  MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '分类状态（ACTIVE-启用 INACTIVE-停用）',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
+
+-- ============ product 商品表 ============
+ALTER TABLE product
+  COMMENT='商品表（宠物零食 SKU）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN sku VARCHAR(64) NOT NULL COMMENT '库存单位编码（全局唯一）',
+  MODIFY COLUMN name VARCHAR(128) NOT NULL COMMENT '商品名称',
+  MODIFY COLUMN pet_type VARCHAR(64) NOT NULL COMMENT '宠物类型（cat-猫 dog-狗）',
+  MODIFY COLUMN flavor VARCHAR(128) NOT NULL COMMENT '口味（如：鸡肉、鳕鱼）',
+  MODIFY COLUMN price DECIMAL(10, 2) NOT NULL COMMENT '售价（单位：元）',
+  MODIFY COLUMN rating DECIMAL(2, 1) NOT NULL DEFAULT 5.0 COMMENT '评分（0.0-5.0，一位小数）',
+  MODIFY COLUMN stock INT NOT NULL DEFAULT 0 COMMENT '库存数量（下单时原子条件扣减，防超卖）',
+  MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '上架状态（ACTIVE-在售 INACTIVE-下架）',
+  MODIFY COLUMN image_url VARCHAR(500) NULL COMMENT '商品主图 URL',
+  MODIFY COLUMN description VARCHAR(1000) NULL COMMENT '商品详情描述',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
+
+-- ============ product_category_rel 商品-分类关联表 ============
+ALTER TABLE product_category_rel
+  COMMENT='商品-分类关联表（多对多）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN product_id BIGINT NOT NULL COMMENT '商品 id（外键 → product.id）',
+  MODIFY COLUMN category_id BIGINT NOT NULL COMMENT '分类 id（外键 → category.id）',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
+
+-- ============ product_tag 商品标签表 ============
+ALTER TABLE product_tag
+  COMMENT='商品标签表（如：低脂、高蛋白）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN name VARCHAR(64) NOT NULL COMMENT '标签名（全局唯一）',
+  MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '标签状态（ACTIVE-启用 INACTIVE-停用）',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
+
+-- ============ product_tag_rel 商品-标签关联表 ============
+ALTER TABLE product_tag_rel
+  COMMENT='商品-标签关联表（多对多）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN product_id BIGINT NOT NULL COMMENT '商品 id（外键 → product.id）',
+  MODIFY COLUMN tag_id BIGINT NOT NULL COMMENT '标签 id（外键 → product_tag.id）',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
+
+-- ============ bundle 场景套餐表 ============
+ALTER TABLE bundle
+  COMMENT='场景套餐表（商品组合优惠）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN name VARCHAR(128) NOT NULL COMMENT '套餐名称（如：新手尝鲜包）',
+  MODIFY COLUMN description VARCHAR(500) NULL COMMENT '套餐描述文案',
+  MODIFY COLUMN price DECIMAL(10, 2) NOT NULL COMMENT '套餐现价（单位：元）',
+  MODIFY COLUMN original_price DECIMAL(10, 2) NOT NULL COMMENT '原价（划线价，用于前端展示优惠幅度）',
+  MODIFY COLUMN discount_label VARCHAR(32) NULL COMMENT '折扣角标文案（如：省 18%）',
+  MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '套餐状态（ACTIVE-在售 INACTIVE-下架）',
+  MODIFY COLUMN sort_order INT NOT NULL DEFAULT 0 COMMENT '排序权重（升序，越小越靠前）',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
+
+-- ============ bundle_item 套餐-商品关联表 ============
+ALTER TABLE bundle_item
+  COMMENT='套餐-商品关联表（套餐内含的商品及件数）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN bundle_id BIGINT NOT NULL COMMENT '套餐 id（外键 → bundle.id）',
+  MODIFY COLUMN product_id BIGINT NOT NULL COMMENT '商品 id（外键 → product.id）',
+  MODIFY COLUMN quantity INT NOT NULL DEFAULT 1 COMMENT '套餐内该商品的件数',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
+
+-- ============ cart 购物车表 ============
+ALTER TABLE cart
+  COMMENT='购物车表（user_id 与 guest_id 互斥，唯一索引保证一人/一游客一车）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN user_id BIGINT NULL COMMENT '归属用户 id（外键 → users.id，游客购物车为 NULL）',
+  MODIFY COLUMN guest_id VARCHAR(80) NULL COMMENT '游客标识（来自 X-Guest-Id 请求头，登录购物车为 NULL，与 user_id 互斥）',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
+
+-- ============ cart_item 购物车条目表 ============
+ALTER TABLE cart_item
+  COMMENT='购物车条目表（uk_cart_item(cart_id, product_id) 支撑原子 upsert 加购）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN cart_id BIGINT NOT NULL COMMENT '购物车 id（外键 → cart.id）',
+  MODIFY COLUMN product_id BIGINT NOT NULL COMMENT '商品 id（外键 → product.id）',
+  MODIFY COLUMN quantity INT NOT NULL DEFAULT 1 COMMENT '购买数量（加购时原子累加）',
+  MODIFY COLUMN checked TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否勾选参与结算（1-勾选 0-未勾选，下单仅结算勾选条目）',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除，删除后重新加购会复活该行）';
+
+-- ============ orders 订单表 ============
+ALTER TABLE orders
+  COMMENT='订单表（user_id 与 guest_id 互斥，与 cart 一致）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN order_no VARCHAR(40) NOT NULL COMMENT '订单号（PB+时间戳+6位随机数，全局唯一，冲突自动换号重试）',
+  MODIFY COLUMN user_id BIGINT NULL COMMENT '下单用户 id（外键 → users.id，游客下单为 NULL）',
+  MODIFY COLUMN guest_id VARCHAR(80) NULL COMMENT '下单游客标识（登录下单为 NULL，与 user_id 互斥）',
+  MODIFY COLUMN total_amount DECIMAL(10, 2) NOT NULL COMMENT '订单总金额（单位：元，按下单时售价累计）',
+  MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'CREATED' COMMENT '订单状态（CREATED-已创建 CANCELLED-已取消，取消时原子条件更新并回补库存）',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '下单时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
+
+-- ============ order_item 订单条目表 ============
+ALTER TABLE order_item
+  COMMENT='订单条目表（名称/图片/单价均为下单时快照，不受后续改价影响）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN order_id BIGINT NOT NULL COMMENT '订单 id（外键 → orders.id）',
+  MODIFY COLUMN product_id BIGINT NOT NULL COMMENT '商品 id（外键 → product.id）',
+  MODIFY COLUMN product_name VARCHAR(128) NOT NULL COMMENT '商品名称（下单时快照）',
+  MODIFY COLUMN product_image VARCHAR(500) NULL COMMENT '商品主图 URL（下单时快照）',
+  MODIFY COLUMN price DECIMAL(10, 2) NOT NULL COMMENT '成交单价（下单时快照，单位：元）',
+  MODIFY COLUMN quantity INT NOT NULL COMMENT '购买数量',
+  MODIFY COLUMN subtotal DECIMAL(10, 2) NOT NULL COMMENT '小计（单价 × 数量，下单时快照）',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
+
+-- ============ subscription 邮箱订阅表 ============
+ALTER TABLE subscription
+  COMMENT='邮箱订阅表（订阅优惠通知）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN email VARCHAR(128) NOT NULL COMMENT '订阅邮箱（全局唯一，统一转小写存储，重复提交幂等）',
+  MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '订阅状态（ACTIVE-已订阅 INACTIVE-已退订）',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
+
+-- ============ review 用户评价表 ============
+ALTER TABLE review
+  COMMENT='用户评价表（首页铲屎官反馈展示）',
+  MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  MODIFY COLUMN product_id BIGINT NULL COMMENT '关联商品 id（外键 → product.id，可空，站内综合评价可不限商品）',
+  MODIFY COLUMN buyer_name VARCHAR(64) NOT NULL COMMENT '买家名称',
+  MODIFY COLUMN pet_name VARCHAR(64) NULL COMMENT '宠物名（如：橘子）',
+  MODIFY COLUMN pet_breed VARCHAR(64) NULL COMMENT '宠物品种（如：英短）',
+  MODIFY COLUMN content VARCHAR(1000) NOT NULL COMMENT '评价内容',
+  MODIFY COLUMN avatar_url VARCHAR(500) NULL COMMENT '评论头像 URL',
+  MODIFY COLUMN purchased_product VARCHAR(128) NULL COMMENT '购买的商品名称（展示用）',
+  MODIFY COLUMN rating DECIMAL(2, 1) NOT NULL DEFAULT 5.0 COMMENT '评分（0.0-5.0，一位小数）',
+  MODIFY COLUMN sort_order INT NOT NULL DEFAULT 0 COMMENT '展示排序权重（升序，越小越靠前）',
+  MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '评价状态（ACTIVE-展示中 INACTIVE-隐藏）',
+  MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  MODIFY COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（自动维护）',
+  MODIFY COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常 1-已删除）';
