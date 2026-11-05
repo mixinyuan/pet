@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pawbites.petshop.service.AuthService;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,18 +18,22 @@ import com.pawbites.petshop.entity.User;
 import com.pawbites.petshop.exception.BusinessException;
 import com.pawbites.petshop.mapper.UserMapper;
 import com.pawbites.petshop.security.JwtService;
+import com.pawbites.petshop.service.CouponService;
 import com.pawbites.petshop.vo.auth.AuthResponse;
 import com.pawbites.petshop.vo.auth.UserProfileVO;
 
 /**
  * 认证服务实现
- * <p>注册走事务：先按用户名/邮箱查重，密码经 BCrypt 加密后入库；
- * 登录支持用户名或邮箱 + 密码比对，仅匹配有效状态用户；用户不存在时同样执行一次
- * 与占位密文的 BCrypt 比对再抛出统一错误，拉平响应时间以防账号枚举；
+ * <p>注册走事务：先按用户名/邮箱查重，密码经 BCrypt 加密后入库，
+ * 入库成功后自动发放一张「新人专享券」（满99减15、30 天有效，每人限领一张；
+ * 发券为 best-effort，异常不回滚注册）；登录支持用户名或邮箱 + 密码比对，仅匹配有效状态用户；
+ * 用户不存在时同样执行一次与占位密文的 BCrypt 比对再抛出统一错误，拉平响应时间以防账号枚举；
  * currentUser 按 id 回查并校验状态，失效时返回 401。</p>
  */
 @Service
 public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements AuthService {
+
+  private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
   /** 占位密文：用户不存在时用它执行一次等长的 BCrypt 比对以拉平响应时间，防止通过时间差枚举账号 */
   private static final String DUMMY_HASH = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
@@ -38,6 +44,9 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements Au
   /** JWT 令牌服务（签发登录令牌） */
   @Resource
   private JwtService jwtService;
+  /** 优惠券服务（注册成功后发放新人专享券） */
+  @Resource
+  private CouponService couponService;
 
   @Transactional
   @Override
@@ -59,6 +68,13 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements Au
     user.setNickname(StringUtils.hasText(request.nickname()) ? request.nickname().trim() : username);
     user.setStatus(StatusConstants.ACTIVE);
     baseMapper.insert(user);
+    // 注册成功自动发放新人专享券（满99减15、30 天有效，每人限领一张）。
+    // best-effort：发券异常仅告警不回滚，注册主流程可用性优先（券可由订阅入口补发）
+    try {
+      couponService.issueNewUserCoupon(user.getId());
+    } catch (RuntimeException exception) {
+      log.warn("用户 {} 注册成功但新人券发放失败：{}", user.getId(), exception.getMessage());
+    }
     return buildAuthResponse(user);
   }
 

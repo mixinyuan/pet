@@ -34,6 +34,7 @@ import com.pawbites.petshop.mapper.OrderItemMapper;
 import com.pawbites.petshop.mapper.OrderMapper;
 import com.pawbites.petshop.mapper.ProductMapper;
 import com.pawbites.petshop.result.PageResult;
+import com.pawbites.petshop.service.CouponService;
 import com.pawbites.petshop.vo.order.OrderItemVO;
 import com.pawbites.petshop.vo.order.OrderVO;
 
@@ -41,10 +42,12 @@ import com.pawbites.petshop.vo.order.OrderVO;
  * 订单服务实现
  * <p>createFromCart 在单个事务中完成：lockCart 行锁（SELECT ... FOR UPDATE）串行化同一购物车的并发结算 →
  * 校验勾选项与商品可售状态 → deductStock 原子扣减库存防超卖（条件更新影响行数为 0 即抛异常回滚）→
+ * （可选）couponService 校验用券并以券金额扣减商品总额（不为负）→
  * 保存订单与条目（订单号唯一索引冲突时换号重试，条目保存商品名称/图片/价格快照，不受后续改价影响）→
+ * （可选）couponService.markUsed 原子核销券（status 0→1 失败即整体回滚）→
  * 清空已勾选的购物车条目；cancelOrder 先经 cancelIfCreated 条件更新抢占取消权（防并发竞态），
- * 抢占成功后按条目 restoreStock 恢复库存；listOrders 分页查询并按 orderId 批量装载条目（消除 N+1）；
- * 列表与详情按 userId/guestId 归属过滤。</p>
+ * 抢占成功后按条目 restoreStock 恢复库存，并经 couponService.returnByOrder 返还该订单核销的券；
+ * listOrders 分页查询并按 orderId 批量装载条目（消除 N+1）；列表与详情按 userId/guestId 归属过滤。</p>
  */
 @Service
 public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> implements OrderService {
@@ -66,10 +69,17 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
   /** 购物车服务（跨模块定位购物车） */
   @Resource
   private CartService cartService;
+  /** 优惠券服务（下单用券校验/核销、取消订单返还，均在本类事务内调用） */
+  @Resource
+  private CouponService couponService;
 
   @Transactional
   @Override
-  public OrderVO createFromCart(Long userId, String guestId) {
+  public OrderVO createFromCart(Long userId, String guestId, Long couponId) {
+    // 游客不可持券、不可用券：明确拒绝而非静默忽略，避免"看似用了券实付未减"的误解
+    if (couponId != null && userId == null) {
+      throw new BusinessException("优惠券仅登录用户可用，请登录后再使用");
+    }
     Cart cart = cartService.resolveCart(userId, guestId, false);
     if (cart == null) {
       throw new BusinessException("购物车为空");
@@ -99,6 +109,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
       totalAmount = totalAmount.add(product.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())));
     }
 
+    // 用券校验（归属/未用/未过期/商品总额满门槛）并计算抵扣金额；任一不满足抛异常整体回滚
+    if (couponId != null) {
+      BigDecimal couponDiscount = couponService.validateForOrder(userId, couponId, totalAmount);
+      // 抵扣以商品总额封顶，扣减后实付不为负
+      totalAmount = totalAmount.subtract(couponDiscount).max(BigDecimal.ZERO);
+    }
+
     OrderEntity order = new OrderEntity();
     order.setOrderNo(generateOrderNo());
     order.setUserId(userId);
@@ -108,6 +125,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
     insertOrderWithOrderNoRetry(order);
     // 重查订单：确保数据库/自动填充写入的创建时间等字段回填到返回视图（防御性双保险）
     order = baseMapper.selectById(order.getId());
+
+    // 核销券：条件更新（status 0→1）写入 used_at/order_id；并发抢占失败抛异常令整个下单事务回滚
+    if (couponId != null) {
+      couponService.markUsed(couponId, order.getId());
+    }
 
     for (CartItem cartItem : cartItems) {
       Product product = productMap.get(cartItem.getProductId());
@@ -183,6 +205,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
         log.warn("取消订单 {} 回补库存失败：商品 {} 不存在或已删除", order.getOrderNo(), item.getProductId());
       }
     }
+
+    // 返还该订单核销的优惠券：status 改回 0 并清空 used_at/order_id；
+    // 简单起见已过期的券同样返还为未使用（是否过期始终按 expires_at 懒判定），订单未用券时静默跳过
+    couponService.returnByOrder(orderId);
     return toOrderVO(baseMapper.selectById(orderId));
   }
 

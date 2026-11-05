@@ -13,15 +13,20 @@ import com.pawbites.petshop.vo.order.OrderVO;
 public interface OrderService extends IService<OrderEntity> {
 
   /**
-   * 从购物车勾选项创建订单
-   * <p>原子扣减库存防止超卖，订单条目保存商品价格快照，下单成功后清空已勾选的购物车条目。</p>
+   * 从购物车勾选项创建订单（可选使用优惠券）
+   * <p>原子扣减库存防止超卖，订单条目保存商品价格快照，下单成功后清空已勾选的购物车条目。
+   * 携带 couponId（用户持券实例 id）时在同一事务内完成用券校验（归属/未用/未过期/商品总额满门槛）→
+   * totalAmount 扣减券金额（不为负）→ 核销券（status=1、写 used_at/order_id）；
+   * 游客携带 couponId 直接拒绝（券仅登录用户可用）。</p>
    *
    * @param userId   登录用户 id（游客身份为 null）
    * @param guestId  游客标识（登录身份为 null）
-   * @return 订单视图（含条目明细）
-   * @throws BusinessException 购物车为空（无勾选项）、部分商品已下架或库存不足
+   * @param couponId 用户持券实例 id（user_coupon.id），null 表示不使用优惠券
+   * @return 订单视图（含条目明细，totalAmount 为扣券后实付金额）
+   * @throws BusinessException 购物车为空（无勾选项）、部分商品已下架、库存不足、
+   *                           游客用券或优惠券不可用（不存在/不归属/已使用/已过期/未满门槛）
    */
-  OrderVO createFromCart(Long userId, String guestId);
+  OrderVO createFromCart(Long userId, String guestId, Long couponId);
 
   /**
    * 分页查询当前身份的订单列表

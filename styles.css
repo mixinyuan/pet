@@ -1093,3 +1093,1514 @@ button:disabled {
     flex-direction: column;
   }
 }
+
+/* ===== 商品详情 / 我的订单 ===== */
+
+/* 顶栏「我的订单」按钮（风格对齐 account-button / cart-button） */
+.orders-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.orders-button:hover {
+  border-color: rgba(63, 125, 76, 0.38);
+  color: var(--green-dark);
+}
+
+/* 商品卡片图片区「查看详情」入口 */
+.product-media {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.detail-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(40, 35, 29, 0.72);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* 商品详情模态框 */
+.product-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 4vw, 32px);
+}
+
+.product-modal[hidden] {
+  display: none;
+}
+
+.product-modal .modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(18, 15, 12, 0.5);
+}
+
+.product-modal .modal-card {
+  position: relative;
+  z-index: 1;
+  width: min(780px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+}
+
+.close-product-modal {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: rgba(255, 253, 248, 0.92);
+  font-size: 28px;
+}
+
+.modal-state {
+  padding: 48px 24px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.modal-state p {
+  margin: 0 0 14px;
+}
+
+.modal-state button,
+.empty-state button {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.product-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+}
+
+.product-detail-media {
+  position: relative;
+  min-height: 320px;
+  overflow: hidden;
+  background: #eee5d8;
+}
+
+.product-detail-media img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(20px, 4vw, 32px);
+}
+
+.product-detail-info h3 {
+  margin: 0;
+  font-size: clamp(22px, 3vw, 30px);
+}
+
+.product-detail-price {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.product-detail-price .price {
+  font-size: 28px;
+}
+
+.stock-note {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.stock-note.out {
+  color: var(--tomato);
+  font-weight: 700;
+}
+
+.product-detail-categories {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.product-detail-desc {
+  margin: 0;
+  color: var(--muted);
+}
+
+.product-detail-sku {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.detail-add-button {
+  min-height: 46px;
+  margin-top: auto;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+/* 我的订单抽屉（结构对齐 cart-drawer） */
+.orders-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  width: min(460px, 100vw);
+  height: 100vh;
+  flex-direction: column;
+  padding: 20px;
+  background: var(--surface-strong);
+  box-shadow: -18px 0 60px rgba(0, 0, 0, 0.18);
+  transform: translateX(105%);
+  transition: transform 220ms ease;
+}
+
+.orders-drawer.open {
+  transform: translateX(0);
+}
+
+.close-orders {
+  width: 44px;
+  height: 44px;
+  font-size: 28px;
+}
+
+.orders-list {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  overflow: auto;
+  padding: 18px 0;
+}
+
+.orders-empty {
+  margin: auto 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+.order-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.order-summary {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.order-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.order-no {
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-time {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.order-amount {
+  color: var(--tomato);
+}
+
+.order-status {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #edf6ee;
+  color: var(--green-dark);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.order-status.cancelled {
+  background: #f3ece4;
+  color: var(--muted);
+}
+
+.order-toggle-hint {
+  color: var(--green-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.order-detail {
+  padding: 12px 14px 14px;
+  border-top: 1px dashed var(--line);
+}
+
+.order-detail[hidden] {
+  display: none;
+}
+
+.order-items {
+  display: grid;
+  gap: 4px;
+}
+
+.order-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.order-item img {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.order-item-name,
+.order-item-meta {
+  display: block;
+}
+
+.order-item-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.order-item-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.order-item strong {
+  color: var(--tomato);
+}
+
+.order-detail-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.cancel-order-button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(217, 79, 56, 0.5);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--tomato);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .product-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .product-detail-media {
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 520px) {
+  .orders-button span:nth-child(2) {
+    display: none;
+  }
+}
+
+/* ===== 日志管理后台（admin.html）===== */
+/* 独立后台页样式：主色采用文档规格的蓝（#409EFF），危险色红（#F56C6C），
+   与商城端的绿色体系区分；基础变量与全局 reset 复用本文件头部定义。 */
+
+.admin-body {
+  min-height: 100vh;
+}
+
+.admin-body [hidden] {
+  display: none !important;
+}
+
+/* ---- 登录门 ---- */
+.admin-gate {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background:
+    linear-gradient(120deg, rgba(64, 158, 255, 0.12), rgba(245, 108, 108, 0.08)),
+    var(--bg);
+}
+
+.admin-gate-panel {
+  display: grid;
+  gap: 14px;
+  width: min(420px, 100%);
+  padding: 36px 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.admin-gate-brand {
+  justify-content: center;
+}
+
+.admin-gate-panel h1 {
+  margin: 6px 0 0;
+  font-size: 22px;
+}
+
+.admin-gate-message {
+  margin: 0;
+  color: var(--muted);
+}
+
+.admin-gate-link {
+  justify-self: center;
+  padding: 10px 22px;
+  border-radius: 4px;
+  background: #409eff;
+  color: #fff;
+  font-weight: 700;
+}
+
+.admin-gate-link:hover {
+  background: #337ecc;
+}
+
+/* ---- 顶栏与页面骨架 ---- */
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px clamp(16px, 4vw, 40px);
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 253, 248, 0.92);
+  backdrop-filter: blur(6px);
+}
+
+.admin-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.admin-account {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.admin-back-link {
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.admin-back-link:hover {
+  border-color: #409eff;
+  color: #337ecc;
+}
+
+.admin-main {
+  padding: clamp(16px, 4vw, 40px);
+}
+
+.admin-card {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: clamp(16px, 3vw, 28px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+}
+
+.admin-card-head h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.admin-card-head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ---- 工具栏 ---- */
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 18px 0 16px;
+}
+
+.admin-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-search input {
+  width: 200px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.admin-search input:focus {
+  border-color: #409eff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.18);
+}
+
+/* ---- 按钮 ---- */
+.admin-btn {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.admin-btn-primary {
+  background: #409eff;
+  color: #fff;
+}
+
+.admin-btn-primary:not(:disabled):hover {
+  background: #337ecc;
+}
+
+.admin-btn-danger {
+  background: #f56c6c;
+  color: #fff;
+}
+
+.admin-btn-danger:not(:disabled):hover {
+  background: #dd4f4f;
+}
+
+.admin-btn-plain {
+  border-color: var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+
+.admin-btn-plain:not(:disabled):hover {
+  border-color: #409eff;
+  color: #337ecc;
+}
+
+.admin-btn-small {
+  min-height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ---- 数据表格 ---- */
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.admin-table th {
+  padding: 12px;
+  border-bottom: 1px solid #ebeef5;
+  background: #fff;
+  color: #333;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid #ebeef5;
+  vertical-align: middle;
+}
+
+.admin-table tbody tr:hover {
+  background: #f7fbff;
+}
+
+.admin-table .col-index {
+  width: 60px;
+}
+
+.admin-table .col-type {
+  width: 140px;
+}
+
+.admin-table .col-time {
+  width: 160px;
+  white-space: nowrap;
+}
+
+.admin-table .col-status {
+  width: 100px;
+  text-align: center;
+}
+
+.admin-table th.col-status {
+  text-align: center;
+}
+
+.admin-table .col-views {
+  width: 80px;
+}
+
+.admin-table .col-actions {
+  width: 130px;
+  white-space: nowrap;
+}
+
+.admin-table .col-actions .admin-btn + .admin-btn {
+  margin-left: 8px;
+}
+
+.admin-table th.cell-title,
+.admin-table td.cell-title {
+  width: 100%;
+}
+
+.cell-title-text {
+  display: block;
+  overflow: hidden;
+  max-width: 480px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- 空态 / 加载 / 错误态 ---- */
+.admin-state {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  padding: 48px 16px;
+  color: var(--muted);
+}
+
+.admin-state-text {
+  margin: 0;
+  font-size: 14px;
+}
+
+.admin-state[data-kind="error"] .admin-state-text {
+  color: #f56c6c;
+}
+
+/* ---- 发布状态 Switch ---- */
+.admin-switch {
+  position: relative;
+  width: 44px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #c0c4cc;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.admin-switch .admin-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease;
+}
+
+.admin-switch.is-on {
+  background: #409eff;
+}
+
+.admin-switch.is-on .admin-switch-knob {
+  transform: translateX(22px);
+}
+
+.admin-switch:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.admin-switch.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 2px solid rgba(64, 158, 255, 0.4);
+  border-top-color: #409eff;
+  border-radius: 999px;
+  animation: admin-switch-spin 0.7s linear infinite;
+}
+
+@keyframes admin-switch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- 分页 ---- */
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  font-size: 14px;
+}
+
+.admin-pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-page,
+.admin-page-nav {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.admin-page:hover,
+.admin-page-nav:hover:not(:disabled) {
+  border-color: #409eff;
+  color: #409eff;
+}
+
+.admin-page.is-current {
+  border-color: #409eff;
+  background: #409eff;
+  color: #fff;
+  font-weight: 700;
+}
+
+.admin-page-nav:disabled,
+.admin-page:disabled {
+  cursor: not-allowed;
+  color: #c0c4cc;
+  background: #f5f7fa;
+}
+
+.admin-page-ellipsis {
+  padding: 0 2px;
+  color: var(--muted);
+}
+
+.admin-page-meta {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: var(--muted);
+}
+
+.admin-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-jump input {
+  width: 48px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  text-align: center;
+}
+
+.admin-jump input:focus {
+  border-color: #409eff;
+  outline: none;
+}
+
+/* ---- 弹窗（新增/编辑/删除确认）---- */
+.admin-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.admin-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(28, 23, 18, 0.5);
+}
+
+.admin-modal-panel {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  width: min(560px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 22px 24px;
+  border-radius: 8px;
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+}
+
+.admin-modal-panel-sm {
+  width: min(400px, 100%);
+}
+
+.admin-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-modal-head h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.admin-modal-close {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.admin-modal-close:hover {
+  background: #f2f6fa;
+  color: var(--ink);
+}
+
+.admin-form {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-field {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-field-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-required {
+  margin-left: 2px;
+  color: #f56c6c;
+}
+
+.admin-field input,
+.admin-field textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.admin-field textarea {
+  resize: vertical;
+  min-height: 130px;
+  font-family: inherit;
+}
+
+.admin-field input:focus,
+.admin-field textarea:focus {
+  border-color: #409eff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.18);
+}
+
+.admin-form-message {
+  margin: 0;
+  min-height: 18px;
+  color: #f56c6c;
+  font-size: 13px;
+}
+
+.admin-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.admin-confirm-text {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* ---- Toast ---- */
+.admin-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 70;
+  max-width: calc(100vw - 32px);
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.admin-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ---- 响应式 ---- */
+@media (max-width: 720px) {
+  .admin-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-search {
+    width: 100%;
+  }
+
+  .admin-search input {
+    flex: 1;
+    width: auto;
+  }
+
+  .admin-search .admin-btn {
+    flex-shrink: 0;
+  }
+
+  .cell-title-text {
+    max-width: 180px;
+  }
+
+  .admin-pagination {
+    justify-content: center;
+  }
+}
+
+/* ===== 个人中心 / 加载更多 ===== */
+
+/* 顶栏账户按钮：由「退出」入口改为「个人中心」入口 */
+.account-label {
+  color: var(--green-dark);
+  font-weight: 800;
+}
+
+/* 个人中心抽屉（结构对齐 cart-drawer / orders-drawer） */
+.account-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  width: min(440px, 100vw);
+  height: 100vh;
+  flex-direction: column;
+  padding: 20px;
+  background: var(--surface-strong);
+  box-shadow: -18px 0 60px rgba(0, 0, 0, 0.18);
+  transform: translateX(105%);
+  transition: transform 220ms ease;
+}
+
+.account-drawer.open {
+  transform: translateX(0);
+}
+
+.close-account {
+  width: 44px;
+  height: 44px;
+  font-size: 28px;
+}
+
+.account-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  overflow: auto;
+  padding: 18px 0;
+}
+
+/* 用户/游客资料卡 + 首字母圆形头像 */
+.account-profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.account-avatar {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.account-profile-info {
+  min-width: 0;
+}
+
+.account-profile-info h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.account-profile-meta {
+  display: grid;
+  gap: 2px;
+  color: var(--muted);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.account-guest-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* 功能入口区（我的订单 / 我的收藏 / 我的优惠券） */
+.account-links {
+  display: grid;
+  gap: 10px;
+}
+
+.account-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 700;
+  text-align: left;
+}
+
+.account-link:hover {
+  border-color: rgba(63, 125, 76, 0.38);
+  color: var(--green-dark);
+}
+
+.account-link.active {
+  border-color: rgba(63, 125, 76, 0.5);
+  background: #edf6ee;
+  color: var(--green-dark);
+}
+
+.account-link-icon {
+  font-size: 18px;
+}
+
+.account-link-arrow {
+  margin-left: auto;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+/* 收藏 / 优惠券占位卡片（下个任务替换为真实列表） */
+.account-placeholder {
+  padding: 26px 18px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.account-placeholder[hidden] {
+  display: none;
+}
+
+.account-placeholder h4 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.account-placeholder p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* 游客提示 */
+.account-guest-tip {
+  padding: 12px 14px;
+  border: 1px solid rgba(227, 167, 47, 0.4);
+  border-radius: 8px;
+  background: #faf3e3;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* 抽屉底部退出按钮 */
+.account-footer {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.account-logout-button {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid rgba(217, 79, 56, 0.5);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--tomato);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.account-logout-button:hover {
+  background: rgba(217, 79, 56, 0.08);
+}
+
+/* 商品「加载更多」区域（位于 product-grid 之外，避免与卡片事件委托冲突） */
+.products-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.products-footer[hidden] {
+  display: none;
+}
+
+.load-more-button {
+  min-height: 46px;
+  padding: 0 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.load-more-button:hover:not(:disabled) {
+  border-color: rgba(63, 125, 76, 0.38);
+  color: var(--green-dark);
+}
+
+.load-more-button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.load-more-button[hidden] {
+  display: none;
+}
+
+.products-end-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.products-end-hint[hidden] {
+  display: none;
+}
+
+.products-load-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.products-load-error[hidden] {
+  display: none;
+}
+
+.products-load-error p {
+  margin: 0;
+  color: var(--tomato);
+  font-size: 14px;
+}
+
+.products-load-error button {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+@media (max-width: 520px) {
+  .account-button .account-label {
+    display: none;
+  }
+}
+
+/* ===== 收藏 / 优惠券 ===== */
+
+/* 商品卡片需要作为爱心按钮的定位上下文（追加声明，不改既有规则） */
+.product-card {
+  position: relative;
+}
+
+/* 商品卡片右上角爱心收藏按钮（需覆盖 .product-card button 的通用按钮样式） */
+.product-card .favorite-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  min-height: 0;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 253, 248, 0.92);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(44, 35, 25, 0.18);
+  transition: color 140ms ease, transform 140ms ease;
+}
+
+.product-card .favorite-toggle:hover {
+  color: var(--tomato);
+  transform: scale(1.08);
+}
+
+.product-card .favorite-toggle.active {
+  background: #fff;
+  color: var(--tomato);
+}
+
+/* 商品详情模态框内同款爱心（媒体区右上角） */
+.product-detail-media .favorite-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 253, 248, 0.92);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(44, 35, 25, 0.18);
+}
+
+.product-detail-media .favorite-toggle:hover {
+  color: var(--tomato);
+}
+
+.product-detail-media .favorite-toggle.active {
+  color: var(--tomato);
+}
+
+/* 个人中心板块容器（我的收藏 / 我的优惠券，替换原占位卡） */
+.account-section {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.account-section[hidden] {
+  display: none;
+}
+
+.account-section h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.account-section-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* 个人中心内的收藏商品网格（复用 .product-card 渲染） */
+.account-product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.account-product-grid .product-card:hover {
+  transform: none;
+}
+
+.account-product-grid .product-info h3 {
+  font-size: 15px;
+}
+
+.account-product-grid .price {
+  font-size: 18px;
+}
+
+.account-product-grid .product-info button {
+  padding: 0 10px;
+  min-height: 36px;
+  font-size: 13px;
+}
+
+/* 优惠券卡片（金额 + 门槛 + 有效期 + 状态） */
+.coupon-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.coupon-card + .coupon-card {
+  margin-top: 10px;
+}
+
+.coupon-amount {
+  display: grid;
+  flex-shrink: 0;
+  min-width: 84px;
+  justify-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #edf6ee;
+  color: var(--green-dark);
+  text-align: center;
+}
+
+.coupon-amount strong {
+  font-size: 20px;
+}
+
+.coupon-amount small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.coupon-info {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.coupon-name {
+  font-weight: 700;
+}
+
+.coupon-expire {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.coupon-status {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.coupon-card.usable .coupon-status {
+  background: #edf6ee;
+  color: var(--green-dark);
+}
+
+.coupon-card.used .coupon-status,
+.coupon-card.expired .coupon-status {
+  background: #f0ece4;
+  color: var(--muted);
+}
+
+.coupon-card.used,
+.coupon-card.expired {
+  opacity: 0.7;
+}
+
+/* 购物车摘要的优惠券行 */
+.cart-coupon[hidden] {
+  display: none;
+}
+
+.coupon-select-line {
+  align-items: center;
+  gap: 10px;
+}
+
+.coupon-select-line label {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.coupon-select {
+  flex: 1;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--ink);
+  font: inherit;
+}
+
+.coupon-select:disabled,
+.coupon-select option:disabled {
+  color: var(--muted);
+}
+
+.coupon-discount-line strong,
+.coupon-payable-line strong {
+  color: var(--tomato);
+}
+
+@media (max-width: 520px) {
+  .account-product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .coupon-card {
+    flex-wrap: wrap;
+  }
+}

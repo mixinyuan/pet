@@ -4,10 +4,12 @@ import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.pawbites.petshop.dto.order.CreateOrderRequest;
 import com.pawbites.petshop.result.ApiResponse;
 import com.pawbites.petshop.result.PageResult;
 import com.pawbites.petshop.security.SecurityUtils;
@@ -16,7 +18,7 @@ import com.pawbites.petshop.vo.order.OrderVO;
 
 /**
  * 订单控制器
- * <p>路由前缀 /api/orders，提供从购物车结算下单、订单列表、订单详情、取消订单接口。
+ * <p>路由前缀 /api/orders，提供从购物车结算下单（可选使用优惠券）、订单列表、订单详情、取消订单接口。
  * 登录用户按 userId、游客按 X-Guest-Id 请求头定位订单。</p>
  */
 @RestController
@@ -28,15 +30,20 @@ public class OrderController {
   private OrderService orderService;
 
   /**
-   * 从当前购物车结算并创建订单（POST /api/orders）
-   * <p>仅结算购物车中勾选（checked）的条目，下单成功后删除这些条目并扣减商品库存。</p>
+   * 从当前购物车结算并创建订单（POST /api/orders，可选 body {couponId}）
+   * <p>仅结算购物车中勾选（checked）的条目，下单成功后删除这些条目并扣减商品库存。
+   * body 可省略或传空对象表示不使用优惠券；couponId 为用户持券实例 id（user_coupon.id），
+   * 仅登录用户可用券，游客携带该字段将被直接拒绝。</p>
    *
-   * @return 新建的订单详情（订单号、总金额、状态、创建时间、订单条目）
-   * @throws BusinessException 购物车为空、部分商品已下架、商品库存不足时抛出
+   * @param request 下单请求（couponId 可选，null 表示不使用优惠券）
+   * @return 新建的订单详情（订单号、总金额=商品总额-券抵扣、状态、创建时间、订单条目）
+   * @throws BusinessException 购物车为空、部分商品已下架、商品库存不足、优惠券不可用（不存在/不归属/已使用/已过期/未满门槛/游客用券）时抛出
    */
   @PostMapping
-  public ApiResponse<OrderVO> create() {
-    return ApiResponse.success(orderService.createFromCart(SecurityUtils.currentUserId(), SecurityUtils.guestId()));
+  public ApiResponse<OrderVO> create(@RequestBody(required = false) CreateOrderRequest request) {
+    Long couponId = request == null ? null : request.couponId();
+    return ApiResponse.success(
+        orderService.createFromCart(SecurityUtils.currentUserId(), SecurityUtils.guestId(), couponId));
   }
 
   /**
@@ -68,7 +75,8 @@ public class OrderController {
 
   /**
    * 取消指定订单（POST /api/orders/{id}/cancel）
-   * <p>仅已创建（CREATED）状态的订单可取消，取消后回补商品库存并将状态置为 CANCELLED。</p>
+   * <p>仅已创建（CREATED）状态的订单可取消，取消后回补商品库存、返还该订单核销的优惠券
+   * （券状态改回未使用并清空 used_at/order_id），并将状态置为 CANCELLED。</p>
    *
    * @param id 订单 id
    * @return 取消后的订单详情

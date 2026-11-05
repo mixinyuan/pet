@@ -66,9 +66,13 @@
       </nav>
 
       <div class="header-actions">
-        <button class="account-button" type="button" aria-label="退出当前账号">
+        <button class="account-button" type="button" aria-label="打开个人中心">
           <span class="account-name">游客模式</span>
-          <span class="logout-label">退出</span>
+          <span class="account-label">个人中心</span>
+        </button>
+        <button class="orders-button" type="button" aria-label="打开我的订单">
+          <span class="orders-icon" aria-hidden="true">📦</span>
+          <span>我的订单</span>
         </button>
         <button class="cart-button" type="button" aria-label="打开购物车">
           <span class="cart-icon" aria-hidden="true">🛒</span>
@@ -150,6 +154,14 @@
           <p class="section-note">低盐低脂、适口配方，按需求快速挑选。</p>
         </div>
         <div class="product-grid" id="productGrid" aria-live="polite"></div>
+        <div class="products-footer" id="productsFooter" hidden>
+          <button class="load-more-button" type="button" data-load-more>加载更多商品</button>
+          <p class="products-end-hint" hidden>已经到底啦，更多好物正在路上～</p>
+          <div class="products-load-error" hidden>
+            <p></p>
+            <button type="button" data-retry-more>重新加载</button>
+          </div>
+        </div>
       </section>
 
       <section class="section band" id="bundles" aria-labelledby="bundles-title">
@@ -269,11 +281,51 @@
           <span>小计</span>
           <strong class="cart-total">¥0</strong>
         </div>
+        <!-- ===== 收藏 / 优惠券：购物车券行（登录后由 script.js 显示，游客隐藏） ===== -->
+        <div class="cart-coupon" hidden>
+          <div class="cart-summary-line coupon-select-line">
+            <label for="couponSelect">优惠券</label>
+            <select id="couponSelect" class="coupon-select"></select>
+          </div>
+          <div class="cart-summary-line coupon-discount-line" hidden>
+            <span>券抵扣</span>
+            <strong class="coupon-discount">-¥0</strong>
+          </div>
+          <div class="cart-summary-line coupon-payable-line" hidden>
+            <span>实付金额</span>
+            <strong class="coupon-payable">¥0</strong>
+          </div>
+        </div>
         <div class="cart-actions">
           <button class="clear-cart" type="button">清空</button>
           <button class="checkout-button" type="button">去结算</button>
         </div>
       </div>
+    </aside>
+
+    <div class="product-modal" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-label="商品详情">
+        <button class="icon-button close-product-modal" type="button" aria-label="关闭商品详情">×</button>
+        <div class="product-modal-content"></div>
+      </div>
+    </div>
+
+    <aside class="orders-drawer" aria-label="我的订单" aria-hidden="true">
+      <div class="drawer-header">
+        <h2>我的订单</h2>
+        <button class="icon-button close-orders" type="button" aria-label="关闭我的订单">×</button>
+      </div>
+      <div class="orders-list" aria-live="polite"></div>
+      <div class="orders-empty" hidden>还没有订单，去挑一份毛孩子喜欢的零食下单吧。</div>
+    </aside>
+
+    <aside class="account-drawer" aria-label="个人中心" aria-hidden="true">
+      <div class="drawer-header">
+        <h2>个人中心</h2>
+        <button class="icon-button close-account" type="button" aria-label="关闭个人中心">×</button>
+      </div>
+      <div class="account-panel" aria-live="polite"></div>
     </aside>
 
     <div class="toast" role="status" aria-live="polite"></div>

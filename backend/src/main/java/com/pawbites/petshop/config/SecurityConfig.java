@@ -55,6 +55,8 @@ public class SecurityConfig {
    *   <li>POST /api/subscriptions —— 订阅提交；</li>
    *   <li>/api/cart/**、/api/orders/** —— 购物车与订单，对游客开放。</li>
    * </ul>
+   * 日志管理接口 /api/logs/**、收藏接口 /api/favorites/**、优惠券接口 /api/coupons/**
+   * 显式要求认证（Bearer token，无角色体系，游客不可访问——游客不可收藏、不可持券/用券）；
    * 其余请求（anyRequest）均要求认证；会话策略为 STATELESS；
    * 未认证访问受保护接口返回 401（{"code":401,"message":"请先登录"}），
    * 认证后权限不足返回 403（{"code":403,"message":"无权访问"}），均为 ApiResponse JSON；
@@ -93,6 +95,10 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/products/**", "/api/bundles/**", "/api/reviews/**").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/subscriptions").permitAll()
             .requestMatchers("/api/cart/**", "/api/orders/**").permitAll()
+            // 日志管理后台接口：需登录（Bearer token），无角色体系，不向游客开放
+            .requestMatchers("/api/logs/**").authenticated()
+            // 收藏与优惠券接口：需登录（游客不可收藏、不可持券/用券，前端引导登录）
+            .requestMatchers("/api/favorites/**", "/api/coupons/**").authenticated()
             .anyRequest().authenticated()
         )
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
