@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.pawbites.petshop.constant.StatusConstants;
 import com.pawbites.petshop.entity.Coupon;
 import com.pawbites.petshop.entity.UserCoupon;
 import com.pawbites.petshop.exception.BusinessException;
@@ -24,7 +25,8 @@ import com.pawbites.petshop.vo.coupon.CouponVO;
 
 /**
  * 优惠券服务实现
- * <p>issueNewUserCoupon 按名称定位「新人专享券」模板生成持券记录（缺失时告警跳过，
+ * <p>issueNewUserCoupon 按名称定位「新人专享券」模板生成持券记录（仅限启用中的模板：
+ * 后台停用（INACTIVE）后不再自动发放；模板缺失或停用时告警跳过，
  * 不阻断注册/订阅；每人限领一张，按用户+模板去重，重复订阅不再重复发放）；listCoupons 联查模板后输出懒判定展示态（0/1/2）与 available 标记；
  * validateForOrder → markUsed 由订单服务在同一事务内先后调用，完成归属/未用/未过期/
  * 门槛校验与原子核销（并发抢占失败即抛异常回滚订单）；returnByOrder 供取消订单返还，
@@ -51,12 +53,15 @@ public class CouponServiceImpl extends ServiceImpl<UserCouponMapper, UserCoupon>
     if (userId == null) {
       return;
     }
+    // 仅定位启用中的模板（status=ACTIVE）：后台停用（INACTIVE）后注册/订阅不再自动发放，
+    // 存量持券不受影响；其余发放逻辑（按用户+模板去重、限领一张）保持不变
     Coupon template = couponMapper.selectOne(Wrappers.<Coupon>lambdaQuery()
         .eq(Coupon::getName, NEW_USER_COUPON_NAME)
+        .eq(Coupon::getStatus, StatusConstants.ACTIVE)
         .last("LIMIT 1"));
     if (template == null) {
-      // 种子模板缺失（如种子数据未执行）：告警并跳过，不阻断注册/订阅主流程
-      log.warn("新人专享券模板缺失，跳过给用户 {} 发券", userId);
+      // 模板缺失（如种子数据未执行）或已被后台停用：告警并跳过，不阻断注册/订阅主流程
+      log.warn("新人专享券模板缺失或已停用，跳过给用户 {} 发券", userId);
       return;
     }
 

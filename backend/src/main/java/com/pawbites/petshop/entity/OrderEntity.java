@@ -2,6 +2,7 @@ package com.pawbites.petshop.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -24,4 +25,8 @@ public class OrderEntity extends BaseEntity {
   private BigDecimal totalAmount;
   /** 订单状态（默认 CREATED） */
   private String status;
+  /** 订单取消时间（取消订单时写入；数据库列 cancel_time，驼峰自动映射） */
+  private LocalDateTime cancelTime;
+  /** 取消方（USER-用户取消 ADMIN-管理员取消，取消订单时写入） */
+  private String cancelBy;
 }

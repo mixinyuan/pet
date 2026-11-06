@@ -12,6 +12,8 @@ public record UserProfileVO(
     /** 邮箱（全局唯一，可为空） */
     String email,
     /** 昵称（前端优先展示的称呼，可为空） */
-    String nickname
+    String nickname,
+    /** 角色（USER-普通用户 ADMIN-管理员），后台登录门据此判断是否有权进入管理端 */
+    String role
 ) {
 }

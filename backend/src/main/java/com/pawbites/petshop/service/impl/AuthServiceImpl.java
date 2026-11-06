@@ -26,7 +26,8 @@ import com.pawbites.petshop.vo.auth.UserProfileVO;
  * 认证服务实现
  * <p>注册走事务：先按用户名/邮箱查重，密码经 BCrypt 加密后入库，
  * 入库成功后自动发放一张「新人专享券」（满99减15、30 天有效，每人限领一张；
- * 发券为 best-effort，异常不回滚注册）；登录支持用户名或邮箱 + 密码比对，仅匹配有效状态用户；
+ * 发券为 best-effort，异常不回滚注册）；登录支持用户名或邮箱 + 密码比对，
+ * 密码正确后再校验账号状态，被禁用（INACTIVE）账号报「账号已被禁用」；
  * 用户不存在时同样执行一次与占位密文的 BCrypt 比对再抛出统一错误，拉平响应时间以防账号枚举；
  * currentUser 按 id 回查并校验状态，失效时返回 401。</p>
  */
@@ -67,6 +68,8 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements Au
     user.setPasswordHash(passwordEncoder.encode(request.password()));
     user.setNickname(StringUtils.hasText(request.nickname()) ? request.nickname().trim() : username);
     user.setStatus(StatusConstants.ACTIVE);
+    // 注册用户固定为普通用户角色（管理员由 SQL 手工指定，不开放注册管理员）
+    user.setRole(StatusConstants.ROLE_USER);
     baseMapper.insert(user);
     // 注册成功自动发放新人专享券（满99减15、30 天有效，每人限领一张）。
     // best-effort：发券异常仅告警不回滚，注册主流程可用性优先（券可由订阅入口补发）
@@ -80,7 +83,8 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements Au
 
   /**
    * 用户名或邮箱 + 密码登录
-   * <p>仅匹配有效状态用户；用户不存在时也执行一次与占位密文的 BCrypt 比对再抛出统一错误，
+   * <p>查询不限账号状态，密码比对通过后再校验状态：被禁用（INACTIVE）账号报「账号已被禁用」，
+   * 便于用户知晓无法登录的原因；用户不存在时也执行一次与占位密文的 BCrypt 比对再抛出统一错误，
    * 使"账号不存在"与"密码错误"两条路径的响应耗时一致，防止账号枚举。</p>
    */
   @Override
@@ -88,7 +92,6 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements Au
     String account = request.username().trim();
     User user = baseMapper.selectOne(Wrappers.<User>lambdaQuery()
         .and(wrapper -> wrapper.eq(User::getUsername, account).or().eq(User::getEmail, account.toLowerCase()))
-        .eq(User::getStatus, StatusConstants.ACTIVE)
         .last("LIMIT 1"));
 
     if (user == null) {
@@ -98,6 +101,10 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements Au
     }
     if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
       throw new BusinessException("账号或密码错误");
+    }
+    // 密码正确但账号已被管理员禁用：明确提示而非笼统的「账号或密码错误」
+    if (!StatusConstants.ACTIVE.equals(user.getStatus())) {
+      throw new BusinessException("账号已被禁用");
     }
     return buildAuthResponse(user);
   }
@@ -114,13 +121,18 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, User> implements Au
     return toProfile(user);
   }
 
-  /** 组装认证响应：签发 JWT 令牌并附带用户资料 */
+  /** 组装认证响应：签发 JWT 令牌并附带用户资料（含角色，后台登录门据此判断是否有权进入管理端） */
   private AuthResponse buildAuthResponse(User user) {
-    return new AuthResponse(jwtService.generateToken(user), toProfile(user));
+    UserProfileVO profile = toProfile(user);
+    return new AuthResponse(jwtService.generateToken(user), profile, profile.role());
   }
 
   /** 用户实体转用户资料视图 */
   private UserProfileVO toProfile(User user) {
-    return new UserProfileVO(user.getId(), user.getUsername(), user.getEmail(), user.getNickname());
+    // 角色非 ADMIN 时一律按普通用户输出，防脏值透出（与 JwtService 签发令牌的口径一致）
+    String role = StatusConstants.ROLE_ADMIN.equals(user.getRole())
+        ? StatusConstants.ROLE_ADMIN
+        : StatusConstants.ROLE_USER;
+    return new UserProfileVO(user.getId(), user.getUsername(), user.getEmail(), user.getNickname(), role);
   }
 }

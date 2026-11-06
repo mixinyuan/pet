@@ -45,8 +45,10 @@ import com.pawbites.petshop.vo.order.OrderVO;
  * （可选）couponService 校验用券并以券金额扣减商品总额（不为负）→
  * 保存订单与条目（订单号唯一索引冲突时换号重试，条目保存商品名称/图片/价格快照，不受后续改价影响）→
  * （可选）couponService.markUsed 原子核销券（status 0→1 失败即整体回滚）→
- * 清空已勾选的购物车条目；cancelOrder 先经 cancelIfCreated 条件更新抢占取消权（防并发竞态），
- * 抢占成功后按条目 restoreStock 恢复库存，并经 couponService.returnByOrder 返还该订单核销的券；
+ * 清空已勾选的购物车条目；cancelOrder 先经 cancelIfCreated 条件更新抢占取消权（防并发竞态，
+ * 同时写入 cancel_time/cancel_by 审计列），抢占成功后按条目 restoreStock 恢复库存，
+ * 并经 couponService.returnByOrder 返还该订单核销的券；cancelOrderByAdmin（管理端兜底取消）
+ * 与 C 端取消共用同一套抢占与收尾逻辑，仅 cancel_by 标记不同（USER/ADMIN）；
  * listOrders 分页查询并按 orderId 批量装载条目（消除 N+1）；列表与详情按 userId/guestId 归属过滤。</p>
  */
 @Service
@@ -193,11 +195,40 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
     if (order == null || !isOwner(order, userId, guestId)) {
       throw new BusinessException(404, "订单不存在");
     }
-    // 条件更新抢占取消权：仅 CREATED 状态可置为 CANCELLED，影响行数为 0 说明已被并发请求抢先取消或状态已变更
-    if (baseMapper.cancelIfCreated(orderId) == 0) {
+    // 条件更新抢占取消权：仅 CREATED 状态可置为 CANCELLED，影响行数为 0 说明已被并发请求抢先取消或状态已变更；
+    // 同时写入取消审计列 cancel_time=NOW、cancel_by=USER（P0 预留字段的业务落地）
+    if (baseMapper.cancelIfCreated(orderId, StatusConstants.CANCEL_BY_USER) == 0) {
       throw new BusinessException("当前订单状态不可取消");
     }
 
+    restoreStockAndReturnCoupon(order);
+    return toOrderVO(baseMapper.selectById(orderId));
+  }
+
+  @Transactional
+  @Override
+  public OrderEntity cancelOrderByAdmin(Long orderId) {
+    OrderEntity order = baseMapper.selectById(orderId);
+    if (order == null) {
+      throw new BusinessException(404, "订单不存在");
+    }
+    // 与 C 端取消共用同一套抢占逻辑，仅取消方标记不同（cancel_by=ADMIN）；仅 CREATED 可取消
+    if (baseMapper.cancelIfCreated(orderId, StatusConstants.CANCEL_BY_ADMIN) == 0) {
+      throw new BusinessException(400, "订单状态不允许取消");
+    }
+
+    restoreStockAndReturnCoupon(order);
+    return baseMapper.selectById(orderId);
+  }
+
+  /**
+   * 取消订单公共收尾（C 端用户取消与管理端取消共用，严禁各自复制一份）
+   * <p>抢占取消权成功后执行：按订单条目逐条回补商品库存（restoreStock 原子加回）、
+   * 返还该订单核销的优惠券（status 改回 0 并清空 used_at/order_id，订单未用券时静默跳过）。</p>
+   *
+   * @param order 已抢占成功待收尾的订单（抢占前查出的实体，仅取 id/orderNo 用于定位与日志）
+   */
+  private void restoreStockAndReturnCoupon(OrderEntity order) {
     List<OrderItem> items = listOrderItems(order.getId());
     for (OrderItem item : items) {
       // 商品行缺失或已物理删除时恢复会落空：仅记录告警、不阻断取消流程（当前无物理删除路径，防御性处理）
@@ -208,8 +239,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
 
     // 返还该订单核销的优惠券：status 改回 0 并清空 used_at/order_id；
     // 简单起见已过期的券同样返还为未使用（是否过期始终按 expires_at 懒判定），订单未用券时静默跳过
-    couponService.returnByOrder(orderId);
-    return toOrderVO(baseMapper.selectById(orderId));
+    couponService.returnByOrder(order.getId());
   }
 
   /** 组装订单视图：查询单笔订单的全部条目明细后装配 */

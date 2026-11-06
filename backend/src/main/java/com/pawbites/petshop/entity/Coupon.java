@@ -38,6 +38,9 @@ public class Coupon {
   /** 备注说明（发放场景与规则文案） */
   private String remark;
 
+  /** 状态（ACTIVE-启用，可被注册/订阅自动发放；INACTIVE-停用，不再自动发放，存量持券不受影响；V8 新增列） */
+  private String status;
+
   /** 创建时间（数据库自动填充） */
   private LocalDateTime createTime;
 }

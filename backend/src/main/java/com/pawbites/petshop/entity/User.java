@@ -23,4 +23,6 @@ public class User extends BaseEntity {
   private String nickname;
   /** 账号状态（默认 ACTIVE） */
   private String status;
+  /** 角色（USER-普通用户 ADMIN-管理员，默认 USER，管理员由 SQL 手工指定） */
+  private String role;
 }

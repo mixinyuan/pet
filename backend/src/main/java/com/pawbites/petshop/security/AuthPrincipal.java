@@ -7,6 +7,7 @@ package com.pawbites.petshop.security;
  * @param userId   用户 id
  * @param username 用户名（登录名）
  * @param nickname 昵称（展示名）
+ * @param role     角色（ADMIN-管理员 USER-普通用户；旧 token 无 role claim 时默认 USER）
  */
-public record AuthPrincipal(Long userId, String username, String nickname) {
+public record AuthPrincipal(Long userId, String username, String nickname, String role) {
 }

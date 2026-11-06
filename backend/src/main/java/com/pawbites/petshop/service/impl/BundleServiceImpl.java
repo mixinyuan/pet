@@ -91,6 +91,9 @@ public class BundleServiceImpl extends ServiceImpl<BundleMapper, Bundle> impleme
     if (product == null) {
       return null;
     }
-    return new ProductSummaryVO(product.getId(), product.getName(), product.getPrice(), product.getImageUrl(), item.getQuantity());
+    // 置灰标记：下架（INACTIVE）商品仍随套餐返回（后台允许套餐含下架商品），由前端置灰展示；
+    // 已逻辑删除的商品在上面 selectBatchIds 处已被过滤，不会走到这里
+    boolean offShelf = StatusConstants.INACTIVE.equals(product.getStatus());
+    return new ProductSummaryVO(product.getId(), product.getName(), product.getPrice(), product.getImageUrl(), item.getQuantity(), offShelf);
   }
 }

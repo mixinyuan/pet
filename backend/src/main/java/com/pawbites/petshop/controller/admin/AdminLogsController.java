@@ -1,5 +1,4 @@
-package com.pawbites.petshop.controller;
-
+package com.pawbites.petshop.controller.admin;
 import jakarta.annotation.Resource;
 
 import jakarta.validation.Valid;
@@ -24,22 +23,25 @@ import com.pawbites.petshop.vo.log.UpdateLogDetailVO;
 import com.pawbites.petshop.vo.log.UpdateLogPageVO;
 
 /**
- * 日志管理控制器
- * <p>路由前缀 /api/logs，提供后台更新日志的分页查询、详情、新增、编辑、
- * 发布状态切换与删除接口；全部接口要求登录（Bearer token），无角色区分；
+ * 管理端日志控制器
+ * <p>路由前缀 /api/admin/logs，由旧 LogsController（/api/logs）整体迁移而来：
+ * 六个接口（分页、详情、新增、编辑、发布状态切换、删除）的行为与响应结构完全一致，
+ * 直接复用原 UpdateLogService 与 dto/log、vo/log，不重复造轮子；差异仅两处——
+ * 路径迁入 /api/admin 前缀、由 SecurityConfig 统一约束 /api/admin/** 仅 ADMIN 角色可访问
+ * （修复旧 /api/logs 仅要求登录、任何用户可改日志的越权隐患）；
  * 类级 @Validated 开启查询参数校验（如关键字长度限制）。</p>
  */
 @Validated
 @RestController
-@RequestMapping("/api/logs")
-public class LogsController {
+@RequestMapping("/api/admin/logs")
+public class AdminLogsController {
 
-  /** 更新日志服务 */
+  /** 更新日志服务（沿用原日志管理链路的服务与 DTO/VO） */
   @Resource
   private UpdateLogService updateLogService;
 
   /**
-   * 分页查询日志（GET /api/logs）
+   * 分页查询日志（GET /api/admin/logs）
    * <p>按标题关键字模糊匹配，create_time 倒序；页码下限 1、pageSize 上限 100。</p>
    *
    * @param page     页码，从 1 开始，默认 1
@@ -59,7 +61,7 @@ public class LogsController {
   }
 
   /**
-   * 查询日志详情（GET /api/logs/{id}）
+   * 查询日志详情（GET /api/admin/logs/{id}）
    *
    * @param id 日志 id
    * @return 日志详情（含 content 正文）
@@ -71,7 +73,7 @@ public class LogsController {
   }
 
   /**
-   * 新增日志（POST /api/logs）
+   * 新增日志（POST /api/admin/logs）
    *
    * @param request 新增请求（title/content 必填；type 为空默认「AI自习室通知」；status 缺省 0）
    * @return 新增后的日志详情
@@ -82,7 +84,7 @@ public class LogsController {
   }
 
   /**
-   * 编辑日志（PUT /api/logs/{id}）
+   * 编辑日志（PUT /api/admin/logs/{id}）
    * <p>仅编辑 title/type/content；发布状态请走 /status 接口。</p>
    *
    * @param id      日志 id
@@ -96,7 +98,7 @@ public class LogsController {
   }
 
   /**
-   * 切换发布状态（PUT /api/logs/{id}/status）
+   * 切换发布状态（PUT /api/admin/logs/{id}/status）
    * <p>只更新发布状态，不改动 create_time。</p>
    *
    * @param id      日志 id
@@ -111,7 +113,7 @@ public class LogsController {
   }
 
   /**
-   * 删除日志（DELETE /api/logs/{id}）
+   * 删除日志（DELETE /api/admin/logs/{id}）
    * <p>物理删除，不可恢复。</p>
    *
    * @param id 日志 id

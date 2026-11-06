@@ -8,6 +8,8 @@ public record AuthResponse(
     /** JWT 访问令牌（后续请求置于 Authorization 头中携带） */
     String token,
     /** 当前登录用户信息 */
-    UserProfileVO user
+    UserProfileVO user,
+    /** 登录用户角色（USER-普通用户 ADMIN-管理员），与 user.role 一致，便于后台登录门直接读取 */
+    String role
 ) {
 }

@@ -15,6 +15,7 @@ import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.pawbites.petshop.constant.StatusConstants;
 import com.pawbites.petshop.entity.User;
 
 /**
@@ -70,7 +71,7 @@ public class JwtService {
   /**
    * 为指定用户签发 JWT。
    *
-   * <p>header 固定为 {@code {"alg":"HS256","typ":"JWT"}}；payload 携带 sub/userId/username/nickname，
+   * <p>header 固定为 {@code {"alg":"HS256","typ":"JWT"}}；payload 携带 sub/userId/username/nickname/role，
    * 以及签发时间 iat 和过期时间 exp（当前时间 + expireHours 小时）。
    *
    * @param user 已通过认证（登录或注册成功）的用户实体
@@ -88,6 +89,10 @@ public class JwtService {
     // 用户名/昵称为 null 时落空串而非字符串 "null"（nickname 允许为空）
     payload.put("username", Objects.toString(user.getUsername(), ""));
     payload.put("nickname", Objects.toString(user.getNickname(), ""));
+    // 角色（ADMIN/USER），非 ADMIN 一律按普通用户落库，防脏值进入令牌
+    payload.put("role", StatusConstants.ROLE_ADMIN.equals(user.getRole())
+        ? StatusConstants.ROLE_ADMIN
+        : StatusConstants.ROLE_USER);
     payload.put("iat", now.getEpochSecond());
     payload.put("exp", now.plusSeconds(expireHours * 3600).getEpochSecond());
 
@@ -129,7 +134,11 @@ public class JwtService {
       // 兼容历史 token 中可能存在的 null 值，统一还原为空串
       String username = Objects.toString(payload.get("username"), "");
       String nickname = Objects.toString(payload.get("nickname"), "");
-      return new AuthPrincipal(userId.longValue(), username, nickname);
+      // 兼容升级前签发的旧 token（无 role claim）：默认按普通用户 USER 处理
+      String role = StatusConstants.ROLE_ADMIN.equals(payload.get("role"))
+          ? StatusConstants.ROLE_ADMIN
+          : StatusConstants.ROLE_USER;
+      return new AuthPrincipal(userId.longValue(), username, nickname, role);
     } catch (Exception exception) {
       return null;
     }

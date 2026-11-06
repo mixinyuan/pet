@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 /**
  * 编辑日志请求
  * <p>仅编辑 title/type/content 三个字段；发布状态走独立的
- * PUT /api/logs/{id}/status 接口，切换状态不更新 create_time。</p>
+ * PUT /api/admin/logs/{id}/status 接口，切换状态不更新 create_time。</p>
  */
 public record UpdateLogRequest(
     /** 日志标题（必填，去除首尾空白后存储，最长 128 字符） */

@@ -55,7 +55,8 @@ public interface OrderService extends IService<OrderEntity> {
 
   /**
    * 取消订单
-   * <p>仅已创建（CREATED）状态的订单可取消，取消后按订单条目恢复对应商品库存。</p>
+   * <p>仅已创建（CREATED）状态的订单可取消，取消后按订单条目恢复对应商品库存；
+   * 取消时写入审计列 cancel_time=当前时间、cancel_by=USER。</p>
    *
    * @param userId   登录用户 id（游客身份为 null）
    * @param guestId  游客标识（登录身份为 null）
@@ -64,4 +65,16 @@ public interface OrderService extends IService<OrderEntity> {
    * @throws BusinessException 订单不存在/不归属当前身份（404）或当前状态不可取消
    */
   OrderVO cancelOrder(Long userId, String guestId, Long orderId);
+
+  /**
+   * 管理员取消订单（管理端兜底取消，不校验归属）
+   * <p>与 C 端取消共用同一套原子逻辑：cancelIfCreated 条件更新抢占取消权（同时写入
+   * cancel_time=当前时间、cancel_by=ADMIN）→ 按订单条目回补商品库存 → 返还该订单
+   * 核销的优惠券。取消不可逆。</p>
+   *
+   * @param orderId 订单 id
+   * @return 取消后的订单实体（供管理端服务组装详情视图）
+   * @throws BusinessException 订单不存在（404）或订单状态不允许取消（400，仅 CREATED 可取消）
+   */
+  OrderEntity cancelOrderByAdmin(Long orderId);
 }
