@@ -1,0 +1,31 @@
+/* 全局基础样式： resets + 主题变量。商城/管理台的公共视觉常量收敛于此。 */
+
+:root {
+  --pb-primary: #16a34a;
+  --pb-text: #1f2d3d;
+  --pb-text-secondary: #6b7280;
+  --pb-border: #e5e7eb;
+  --pb-bg: #f5f6f8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family:
+    'PingFang SC',
+    'Microsoft YaHei',
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  color: var(--pb-text);
+  background: #fff;
+}
+
+#app {
+  min-height: 100vh;
+}
