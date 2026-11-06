@@ -6,6 +6,10 @@
  * escapeHtml、toast；登录态复用 localStorage 的 pawbites-auth
  * （存法与 script.js 一致：JSON 字符串 {mode,token,user,displayName}）。
  * 不引入 script.js 本体。
+ *
+ * 2026-11 迁移说明：日志接口已由 /api/logs 整体迁至 /api/admin/logs
+ * （仅 ADMIN 角色可访问）；本页所有请求路径同步更新，非管理员访问
+ * 接口返回 403 时提示并停留登录门。
  * ============================================================ */
 
 const API_BASE_URL = localStorage.getItem("pawbites-api-base") || "http://localhost:8080/api";
@@ -107,6 +111,11 @@ function normalizeError(error) {
   return error.message || "操作失败，请稍后重试。";
 }
 
+/** 是否权限不足（HTTP 403 / 业务码 403；/api/admin/** 要求 ADMIN 角色） */
+function isForbidden(error) {
+  return error && (error.code === 403 || error.status === 403);
+}
+
 /**
  * 轻量 apiRequest：仅登录场景（Bearer 头）。
  * 约定与 script.js 对齐：code!==0 时抛出 payload.message；
@@ -198,7 +207,7 @@ async function loadLogs() {
   showTableState("loading", "加载中…");
 
   try {
-    const data = await apiRequest(`/logs?${query.toString()}`);
+    const data = await apiRequest(`/admin/logs?${query.toString()}`);
     if (requestId !== listRequestId) return; // 过期响应，丢弃
 
     listState.total = Number(data?.total || 0);
@@ -216,6 +225,13 @@ async function loadLogs() {
     if (requestId !== listRequestId) return;
     if (error.code === 401 || error.status === 401) {
       handleAuthFailure("登录状态已失效，请重新登录。");
+      return;
+    }
+    if (isForbidden(error)) {
+      // 非管理员：日志接口已迁至 /api/admin/logs 并要求 ADMIN 角色，提示后停留登录门
+      adminShell.hidden = true;
+      showGate("该账号无管理员权限，请使用管理员账号登录。");
+      showToast("该账号无管理员权限");
       return;
     }
     listState.rows = [];
@@ -294,7 +310,7 @@ async function togglePublishStatus(switchButton) {
   statusPendingIds.add(id);
 
   try {
-    await apiRequest(`/logs/${id}/status`, { method: "PUT", body: { status: nextStatus } });
+    await apiRequest(`/admin/logs/${id}/status`, { method: "PUT", body: { status: nextStatus } });
     showToast(nextStatus === 1 ? "发布成功" : "已下线");
   } catch (error) {
     applySwitchState(switchButton, currentStatus); // 回滚开关状态
@@ -426,7 +442,7 @@ function closeLogModal() {
 
 async function openEditModal(id) {
   try {
-    const detail = await apiRequest(`/logs/${id}`);
+    const detail = await apiRequest(`/admin/logs/${id}`);
     openLogModal("edit", detail);
   } catch (error) {
     if (error.code === 401 || error.status === 401) {
@@ -458,12 +474,12 @@ async function submitLogForm(event) {
 
   try {
     if (editingLogId) {
-      await apiRequest(`/logs/${editingLogId}`, { method: "PUT", body: { title, type, content } });
+      await apiRequest(`/admin/logs/${editingLogId}`, { method: "PUT", body: { title, type, content } });
       showToast("保存成功");
       closeLogModal();
       await loadLogs(); // 编辑后刷新当前页（保留搜索词与页码）
     } else {
-      await apiRequest("/logs", { method: "POST", body: { title, type, content, status: 0 } });
+      await apiRequest("/admin/logs", { method: "POST", body: { title, type, content, status: 0 } });
       showToast("新增成功");
       closeLogModal();
       listState.page = 1; // 新日志按时间倒序排在最前，回到第 1 页
@@ -506,7 +522,7 @@ async function confirmDelete() {
   confirmDeleteButton.textContent = "删除中…";
 
   try {
-    await apiRequest(`/logs/${deletingLogId}`, { method: "DELETE" });
+    await apiRequest(`/admin/logs/${deletingLogId}`, { method: "DELETE" });
     showToast("删除成功");
     const wasLastOnPage = listState.rows.length === 1 && listState.page > 1;
     closeConfirmModal();

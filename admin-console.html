@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>管理控制台 | PawBites 管理后台</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="pa-console-body">
+  <!--
+    ============================================================
+    PawBites 后台管理控制台（admin-console.html + admin-console.js）
+    ============================================================
+    FE-A 交付：框架（登录门 / 侧边栏 8 项导航 / 顶栏 / 内容区挂载点）
+    + 数据看板 + 商品管理（含分类 / 标签子标签页）+ 场景套餐管理。
+
+    ★★★ 模块注册机制（FE-B 扩展方法）★★★
+
+    本页全部业务模块通过 admin-console.js 暴露的全局注册器挂载：
+
+      PawAdmin.registerModule({
+        id: "orders",          // 模块唯一标识（对应导航 data-view）
+        title: "订单管理",      // 面包屑与导航标题
+        order: 40,             // 导航排序权重（越小越靠前）
+        icon: "cart",          // 图标 key（见 admin-console.js 的 ICONS 表，可自行扩充）
+        mount(container, ctx)  // 切换到该模块时调用；container 为内容区 DOM，
+      });                      // ctx 为基础设施（api/escapeHtml/money/toast/
+                               // showModal/closeModal/confirmBox/onAuthFailure 等）
+
+    · FE-A 已用同一机制注册 dashboard / products / bundles 三个模块，并为
+      orders / users / reviews / coupons / logs 注册了 placeholder 占位模块
+      （点击导航显示「该模块建设中（FE-B 交付）」）。
+    · FE-B 接入时：新增 admin-console-feb.js（或在页面底部追加 script），
+      用相同 id 再次调用 registerModule 即可覆盖占位定义 —— 注册器按 id
+      覆盖，后注册者生效，并自动重渲染侧边栏导航。
+    · 模块间互调：注册的模块定义对象保存在 PawAdmin.modules（Map），
+      可挂载自定义方法供其他模块调用（如 PawAdmin.modules.get("products").openEdit(id)，
+      看板「去补库存」即用此方式拉起商品编辑弹窗）。
+    · 切换模块时内容区会被清空并重新 mount，各模块自行维护列表状态
+      （可闭包保存在模块定义对象上）。
+
+    事件约定：内容区 / 弹窗统一走根容器事件委托，元素带 data-action 属性即可；
+    基础设施与处理器见 admin-console.js。
+    ============================================================
+  -->
+  <div id="pa-console">
+    <!-- ============ 登录门：未登录 / 非管理员 / 令牌失效时展示 ============ -->
+    <section class="pa-gate" id="paGate" hidden>
+      <div class="pa-gate-card">
+        <div class="pa-gate-logo"><span class="pa-gate-logo-mark">P</span>PawBites 管理后台</div>
+        <div class="pa-gate-sub">仅限管理员账号登录</div>
+        <form id="paLoginForm" novalidate>
+          <div class="pa-fi" style="margin-bottom:14px;">
+            <label for="paLoginUser">账号</label>
+            <input id="paLoginUser" placeholder="管理员用户名 / 邮箱" autocomplete="off" maxlength="128" />
+          </div>
+          <div class="pa-fi" style="margin-bottom:20px;">
+            <label for="paLoginPwd">密码</label>
+            <input id="paLoginPwd" type="password" placeholder="密码" autocomplete="current-password" maxlength="72" />
+          </div>
+          <p class="pa-gate-msg" id="paGateMsg" role="status" aria-live="polite"></p>
+          <button class="pa-btn pa-btn-pri pa-btn-block" type="submit" id="paLoginBtn">登 录</button>
+        </form>
+        <div class="pa-gate-foot"><a href="index.html">返回商城首页</a></div>
+      </div>
+    </section>
+
+    <!-- ============ 主框架：侧边栏 + 顶栏 + 内容区挂载点 ============ -->
+    <div class="pa-shell" id="paShell" hidden>
+      <aside class="pa-side">
+        <div class="pa-brand"><span class="pa-brand-mark">P</span>PawBites<small>管理后台</small></div>
+        <nav class="pa-nav" id="paNav" aria-label="后台模块导航"></nav>
+        <div class="pa-side-foot">PawBites 鲜宠小食 · 运营控制台</div>
+      </aside>
+      <div class="pa-main">
+        <header class="pa-topbar">
+          <span class="pa-crumb" id="paCrumb"></span>
+          <span class="pa-topbar-right">
+            <a class="pa-btn" href="index.html">返回商城</a>
+            <span class="pa-account">
+              <span class="pa-avatar" id="paAvatar" aria-hidden="true">管</span>
+              <span id="paAccountName"></span>
+            </span>
+            <button class="pa-iconbtn" type="button" data-action="logout" aria-label="退出登录" title="退出登录"></button>
+          </span>
+        </header>
+        <div class="pa-content" id="paContent"></div>
+      </div>
+    </div>
+
+    <!-- 弹窗 / toast（模块通过 PawAdmin.ctx.showModal / toast 使用） -->
+    <div class="pa-overlay" id="paOverlay" hidden><div class="pa-modal" id="paModal" role="dialog" aria-modal="true"></div></div>
+    <div class="pa-toasts" id="paToasts" aria-live="polite"></div>
+  </div>
+  <script src="admin-console.js"></script>
+  <!-- FE-B：订单/用户/评价/优惠券/日志五个业务模块（覆盖上方占位注册） -->
+  <script src="admin-console-modules.js"></script>
+</body>
+</html>
