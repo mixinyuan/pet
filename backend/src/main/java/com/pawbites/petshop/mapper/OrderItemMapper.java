@@ -20,9 +20,11 @@ public interface OrderItemMapper extends BaseMapper<OrderItem> {
    * 按商品聚合未取消订单条目的销量与销售额（管理端看板热销榜聚合）
    * <p>GROUP BY / SUM / ORDER BY / LIMIT 全部下推数据库执行，只返回聚合行：
    * JOIN orders 过滤 status = 'CREATED'（排除已取消订单的条目，已取消订单
-   * 的库存与券均已回滚，不应计入销量）；按销量降序、销售额降序（销量并列时
-   * 销售额高者靠前）取前 N 行。聚合不 JOIN 商品表——商品已逻辑删除的条目
-   * 仍保留计数（报表口径），商品信息由调用方按 id 批量补齐并对查不到的行跳过。</p>
+   * 的库存与券均已回滚，不应计入销量）；仅统计单品条目（item_type = 'PRODUCT'），
+   * 套餐行的 product_id 是套餐 id、与商品 id 可能撞号，混入会污染商品聚合。
+   * 按销量降序、销售额降序（销量并列时销售额高者靠前）取前 N 行。
+   * 聚合不 JOIN 商品表——商品已逻辑删除的条目仍保留计数（报表口径），
+   * 商品信息由调用方按 id 批量补齐并对查不到的行跳过。</p>
    *
    * @param limit 返回的聚合行数上限（看板取 5，外层留有余量多取几行）
    * @return 商品销量聚合行列表（已按销量、销售额降序）
@@ -36,6 +38,7 @@ public interface OrderItemMapper extends BaseMapper<OrderItem> {
          AND o.status = 'CREATED'
          AND o.deleted = 0
       WHERE oi.deleted = 0
+        AND oi.item_type = 'PRODUCT'
       GROUP BY oi.product_id
       ORDER BY sold_quantity DESC, sales_amount DESC
       LIMIT #{limit}

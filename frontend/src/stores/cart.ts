@@ -11,6 +11,7 @@ import { defineStore } from 'pinia'
 import { ElMessage } from 'element-plus'
 
 import * as cartApi from '@/api/cart'
+import type { CartItemType } from '@/api/cart'
 import { fetchMyCoupons } from '@/api/coupon'
 import { useAuthStore } from '@/stores/auth'
 import type { CartItemVO, CartVO, CouponVO } from '@/types/shop'
@@ -105,26 +106,38 @@ export const useCartStore = defineStore('cart', {
     /** 加入购物车（成功后弹出商品名提示，对齐旧页 addToCart） */
     async addToCart(productId: number, quantity = 1) {
       this.cart = normalizeCart(await cartApi.addCartItem(productId, quantity))
-      const item = this.items.find((row) => Number(row.productId) === Number(productId))
+      const item = this.items.find(
+        (row) => row.itemType !== 'BUNDLE' && Number(row.productId) === Number(productId),
+      )
       ElMessage.success(`${item?.productName || '商品'}已加入购物车`)
+      return this.cart
+    },
+
+    /** 套餐加入购物车（按套餐价结算，后端按组成商品校验库存） */
+    async addBundleToCart(bundleId: number, quantity = 1) {
+      this.cart = normalizeCart(await cartApi.addCartBundle(bundleId, quantity))
+      const item = this.items.find(
+        (row) => row.itemType === 'BUNDLE' && Number(row.productId) === Number(bundleId),
+      )
+      ElMessage.success(`${item?.productName || '套餐'}已加入购物车`)
       return this.cart
     },
 
     /**
      * 修改购买数量：数量归零/负数按旧逻辑转为删除条目；
-     * 非法输入由视图层拦截，这里只发起请求。
+     * 非法输入由视图层拦截，这里只发起请求；套餐条目由 item.itemType 决定 type 参数。
      */
-    async updateQuantity(productId: number, quantity: number) {
+    async updateQuantity(refId: number, quantity: number, type: CartItemType = 'PRODUCT') {
       if (quantity <= 0) {
-        return this.removeItem(productId)
+        return this.removeItem(refId, type)
       }
-      this.cart = normalizeCart(await cartApi.updateCartItem(productId, quantity))
+      this.cart = normalizeCart(await cartApi.updateCartItem(refId, quantity, type))
       return this.cart
     },
 
-    /** 删除购物车中指定商品条目 */
-    async removeItem(productId: number) {
-      this.cart = normalizeCart(await cartApi.removeCartItem(productId))
+    /** 删除购物车中指定条目（套餐条目传 type='BUNDLE'） */
+    async removeItem(refId: number, type: CartItemType = 'PRODUCT') {
+      this.cart = normalizeCart(await cartApi.removeCartItem(refId, type))
       return this.cart
     },
 

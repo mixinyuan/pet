@@ -54,9 +54,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
 })
 
-/** −/+ 步进：数量减到 0 时按旧逻辑转为删除该条目 */
+/** −/+ 步进：数量减到 0 时按旧逻辑转为删除该条目（套餐条目带 type=BUNDLE） */
 function step(item: CartItemVO, delta: number) {
-  cart.updateQuantity(item.productId, Number(item.quantity) + delta).catch(() => {
+  const type = item.itemType === 'BUNDLE' ? 'BUNDLE' : 'PRODUCT'
+  cart.updateQuantity(item.productId, Number(item.quantity) + delta, type).catch(() => {
     // 失败已由拦截器弹错，本地态未变更无需回滚
   })
 }
@@ -80,7 +81,8 @@ function onQuantityChange(item: CartItemVO, event: Event) {
   }
 
   if (nextQuantity !== item.quantity) {
-    cart.updateQuantity(item.productId, nextQuantity).catch(() => {
+    const type = item.itemType === 'BUNDLE' ? 'BUNDLE' : 'PRODUCT'
+    cart.updateQuantity(item.productId, nextQuantity, type).catch(() => {
       input.value = String(item.quantity)
     })
   }
@@ -118,10 +120,13 @@ function goCheckout() {
     </div>
 
     <div class="cart-items">
-      <article v-for="item in cart.items" :key="item.productId" class="cart-item">
+      <article v-for="item in cart.items" :key="`${item.itemType}-${item.productId}`" class="cart-item">
         <img :src="item.productImage" :alt="item.productName" />
         <div>
-          <h3>{{ item.productName }}</h3>
+          <h3>
+            {{ item.productName }}
+            <span v-if="item.itemType === 'BUNDLE'" class="cart-item-type">套餐</span>
+          </h3>
           <div class="cart-line">
             <span>{{ formatPrice(item.price) }}</span>
             <div class="stepper" :aria-label="`${item.productName}数量`">
@@ -175,3 +180,18 @@ function goCheckout() {
     </div>
   </aside>
 </template>
+
+<style scoped>
+/* 套餐条目标识：金色小药丸，与单品行区分（套餐价即结算单价） */
+.cart-item-type {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+</style>

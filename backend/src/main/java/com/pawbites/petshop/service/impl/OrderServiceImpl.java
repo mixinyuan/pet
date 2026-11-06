@@ -23,12 +23,16 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.pawbites.petshop.constant.StatusConstants;
+import com.pawbites.petshop.entity.Bundle;
+import com.pawbites.petshop.entity.BundleItem;
 import com.pawbites.petshop.entity.Cart;
 import com.pawbites.petshop.entity.CartItem;
 import com.pawbites.petshop.entity.OrderEntity;
 import com.pawbites.petshop.entity.OrderItem;
 import com.pawbites.petshop.entity.Product;
 import com.pawbites.petshop.exception.BusinessException;
+import com.pawbites.petshop.mapper.BundleItemMapper;
+import com.pawbites.petshop.mapper.BundleMapper;
 import com.pawbites.petshop.mapper.CartItemMapper;
 import com.pawbites.petshop.mapper.OrderItemMapper;
 import com.pawbites.petshop.mapper.OrderMapper;
@@ -68,6 +72,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
   /** 商品 Mapper（扣减/恢复库存） */
   @Resource
   private ProductMapper productMapper;
+  /** 套餐 Mapper（套餐条目结算校验与快照） */
+  @Resource
+  private BundleMapper bundleMapper;
+  /** 套餐组成 Mapper（套餐结算的组成商品装载） */
+  @Resource
+  private BundleItemMapper bundleItemMapper;
   /** 购物车服务（跨模块定位购物车） */
   @Resource
   private CartService cartService;
@@ -96,19 +106,26 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
       throw new BusinessException("购物车为空");
     }
 
-    Map<Long, Product> productMap = productMapper.selectBatchIds(
-            cartItems.stream().map(CartItem::getProductId).distinct().toList()
-        )
-        .stream()
-        .collect(Collectors.toMap(Product::getId, product -> product));
+    Map<Long, Product> productMap = loadProductMap(cartItems);
+    // 套餐条目：批量装载套餐 + 组成商品（结算校验、组件扣库存与快照装配共用）
+    Map<Long, Bundle> bundleMap = loadBundleMap(cartItems);
+    Map<Long, List<BundleItem>> componentMap = loadComponentMap(cartItems);
+    Map<Long, Product> componentProductMap = loadComponentProductMap(componentMap);
 
     BigDecimal totalAmount = BigDecimal.ZERO;
     for (CartItem cartItem : cartItems) {
-      Product product = requireOrderableProduct(productMap.get(cartItem.getProductId()));
-      if (productMapper.deductStock(product.getId(), cartItem.getQuantity()) == 0) {
-        throw new BusinessException(product.getName() + "库存不足");
+      if (CartItem.TYPE_BUNDLE.equals(cartItem.getItemType())) {
+        // 套餐行：按套餐价计入总额；库存不单独扣套餐，而是按组成商品逐项原子扣减
+        Bundle bundle = requireOrderableBundle(bundleMap.get(cartItem.getProductId()));
+        deductBundleComponentStock(bundle, componentMap, componentProductMap, cartItem.getQuantity());
+        totalAmount = totalAmount.add(bundle.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())));
+      } else {
+        Product product = requireOrderableProduct(productMap.get(cartItem.getProductId()));
+        if (productMapper.deductStock(product.getId(), cartItem.getQuantity()) == 0) {
+          throw new BusinessException(product.getName() + "库存不足");
+        }
+        totalAmount = totalAmount.add(product.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())));
       }
-      totalAmount = totalAmount.add(product.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())));
     }
 
     // 用券校验（归属/未用/未过期/商品总额满门槛）并计算抵扣金额；任一不满足抛异常整体回滚
@@ -134,15 +151,27 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
     }
 
     for (CartItem cartItem : cartItems) {
-      Product product = productMap.get(cartItem.getProductId());
       OrderItem orderItem = new OrderItem();
       orderItem.setOrderId(order.getId());
-      orderItem.setProductId(product.getId());
-      orderItem.setProductName(product.getName());
-      orderItem.setProductImage(product.getImageUrl());
-      orderItem.setPrice(product.getPrice());
       orderItem.setQuantity(cartItem.getQuantity());
-      orderItem.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())));
+      if (CartItem.TYPE_BUNDLE.equals(cartItem.getItemType())) {
+        // 套餐快照行：名称/价格冻结为下单时的套餐名与套餐价，图片取首个组成商品
+        Bundle bundle = bundleMap.get(cartItem.getProductId());
+        orderItem.setProductId(bundle.getId());
+        orderItem.setItemType(OrderItem.TYPE_BUNDLE);
+        orderItem.setProductName(bundle.getName());
+        orderItem.setProductImage(firstComponentImage(bundle.getId(), componentMap, componentProductMap));
+        orderItem.setPrice(bundle.getPrice());
+        orderItem.setSubtotal(bundle.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())));
+      } else {
+        Product product = productMap.get(cartItem.getProductId());
+        orderItem.setProductId(product.getId());
+        orderItem.setItemType(OrderItem.TYPE_PRODUCT);
+        orderItem.setProductName(product.getName());
+        orderItem.setProductImage(product.getImageUrl());
+        orderItem.setPrice(product.getPrice());
+        orderItem.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())));
+      }
       orderItemMapper.insert(orderItem);
     }
 
@@ -223,7 +252,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
 
   /**
    * 取消订单公共收尾（C 端用户取消与管理端取消共用，严禁各自复制一份）
-   * <p>抢占取消权成功后执行：按订单条目逐条回补商品库存（restoreStock 原子加回）、
+   * <p>抢占取消权成功后执行：按订单条目逐条回补库存（restoreStock 原子加回；
+   * 单品行直接回补商品库存，套餐行按组成商品逐项回补 quantity × 组件数量）、
    * 返还该订单核销的优惠券（status 改回 0 并清空 used_at/order_id，订单未用券时静默跳过）。</p>
    *
    * @param order 已抢占成功待收尾的订单（抢占前查出的实体，仅取 id/orderNo 用于定位与日志）
@@ -231,8 +261,17 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
   private void restoreStockAndReturnCoupon(OrderEntity order) {
     List<OrderItem> items = listOrderItems(order.getId());
     for (OrderItem item : items) {
-      // 商品行缺失或已物理删除时恢复会落空：仅记录告警、不阻断取消流程（当前无物理删除路径，防御性处理）
-      if (productMapper.restoreStock(item.getProductId(), item.getQuantity()) == 0) {
+      if (OrderItem.TYPE_BUNDLE.equals(item.getItemType())) {
+        // 套餐行：按取消时的组成结构回补各组件库存（与下单时的扣减口径一致）；
+        // 组件行缺失或已物理删除时回补落空：仅记录告警、不阻断取消流程
+        for (BundleItem component : bundleComponents(item.getProductId())) {
+          if (productMapper.restoreStock(component.getProductId(), component.getQuantity() * item.getQuantity()) == 0) {
+            log.warn("取消订单 {} 回补套餐组件库存失败：商品 {} 不存在或已删除",
+                order.getOrderNo(), component.getProductId());
+          }
+        }
+      } else if (productMapper.restoreStock(item.getProductId(), item.getQuantity()) == 0) {
+        // 商品行缺失或已物理删除时恢复会落空：仅记录告警、不阻断取消流程（当前无物理删除路径，防御性处理）
         log.warn("取消订单 {} 回补库存失败：商品 {} 不存在或已删除", order.getOrderNo(), item.getProductId());
       }
     }
@@ -251,6 +290,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
   private OrderVO toOrderVO(OrderEntity order, List<OrderItem> items) {
     List<OrderItemVO> itemVOs = items.stream()
         .map(item -> new OrderItemVO(
+            item.getItemType(),
             item.getProductId(),
             item.getProductName(),
             item.getProductImage(),
@@ -311,6 +351,114 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
       throw new BusinessException("部分商品已下架");
     }
     return product;
+  }
+
+  /** 校验套餐存在且为上架状态，否则视为已下架 */
+  private Bundle requireOrderableBundle(Bundle bundle) {
+    if (bundle == null || !StatusConstants.ACTIVE.equals(bundle.getStatus())) {
+      throw new BusinessException("部分套餐已下架");
+    }
+    return bundle;
+  }
+
+  /** 批量装载购物车单品条目对应的商品（逻辑删除自动过滤；套餐行的 id 不在此列） */
+  private Map<Long, Product> loadProductMap(List<CartItem> cartItems) {
+    List<Long> productIds = cartItems.stream()
+        .filter(item -> !CartItem.TYPE_BUNDLE.equals(item.getItemType()))
+        .map(CartItem::getProductId)
+        .distinct()
+        .toList();
+    if (productIds.isEmpty()) {
+      return Map.of();
+    }
+    return productMapper.selectBatchIds(productIds).stream()
+        .collect(Collectors.toMap(Product::getId, product -> product));
+  }
+
+  /** 批量装载购物车套餐条目对应的套餐 */
+  private Map<Long, Bundle> loadBundleMap(List<CartItem> cartItems) {
+    List<Long> bundleIds = cartItems.stream()
+        .filter(item -> CartItem.TYPE_BUNDLE.equals(item.getItemType()))
+        .map(CartItem::getProductId)
+        .distinct()
+        .toList();
+    if (bundleIds.isEmpty()) {
+      return Map.of();
+    }
+    return bundleMapper.selectBatchIds(bundleIds).stream()
+        .collect(Collectors.toMap(Bundle::getId, bundle -> bundle));
+  }
+
+  /** 批量装载购物车涉及套餐的组成条目（bundleId → 组成列表，按 id 升序） */
+  private Map<Long, List<BundleItem>> loadComponentMap(List<CartItem> cartItems) {
+    List<Long> bundleIds = cartItems.stream()
+        .filter(item -> CartItem.TYPE_BUNDLE.equals(item.getItemType()))
+        .map(CartItem::getProductId)
+        .distinct()
+        .toList();
+    if (bundleIds.isEmpty()) {
+      return Map.of();
+    }
+    return bundleItemMapper.selectList(Wrappers.<BundleItem>lambdaQuery()
+            .in(BundleItem::getBundleId, bundleIds)
+            .orderByAsc(BundleItem::getId))
+        .stream()
+        .collect(Collectors.groupingBy(BundleItem::getBundleId));
+  }
+
+  /** 批量装载套餐组成条目对应的商品（组件校验、扣库存与快照图片共用） */
+  private Map<Long, Product> loadComponentProductMap(Map<Long, List<BundleItem>> componentMap) {
+    List<Long> productIds = componentMap.values().stream()
+        .flatMap(List::stream)
+        .map(BundleItem::getProductId)
+        .distinct()
+        .toList();
+    if (productIds.isEmpty()) {
+      return Map.of();
+    }
+    return productMapper.selectBatchIds(productIds).stream()
+        .collect(Collectors.toMap(Product::getId, product -> product));
+  }
+
+  /**
+   * 按购买份数扣减套餐各组成商品库存：每份消耗 comp.quantity 件，
+   * deductStock 条件更新（防超卖）影响行数为 0 即抛异常令整个下单事务回滚。
+   */
+  private void deductBundleComponentStock(Bundle bundle, Map<Long, List<BundleItem>> componentMap,
+      Map<Long, Product> componentProductMap, int quantity) {
+    List<BundleItem> components = componentMap.getOrDefault(bundle.getId(), List.of());
+    if (components.isEmpty()) {
+      throw new BusinessException("套餐「" + bundle.getName() + "」内没有商品，无法购买");
+    }
+    for (BundleItem component : components) {
+      Product product = componentProductMap.get(component.getProductId());
+      // 组件下架/缺失时整个套餐不可售：与单品下单的下架拦截口径一致
+      if (product == null || !StatusConstants.ACTIVE.equals(product.getStatus())) {
+        throw new BusinessException("套餐「" + bundle.getName() + "」内商品已下架");
+      }
+      if (productMapper.deductStock(product.getId(), component.getQuantity() * quantity) == 0) {
+        throw new BusinessException("套餐「" + bundle.getName() + "」内商品「" + product.getName() + "」库存不足");
+      }
+    }
+  }
+
+  /** 套餐首个组成商品的图片（快照展示用；组成按 id 升序保证稳定） */
+  private String firstComponentImage(Long bundleId, Map<Long, List<BundleItem>> componentMap,
+      Map<Long, Product> componentProductMap) {
+    return componentMap.getOrDefault(bundleId, List.of()).stream()
+        .map(BundleItem::getProductId)
+        .map(componentProductMap::get)
+        .filter(product -> product != null)
+        .findFirst()
+        .map(Product::getImageUrl)
+        .orElse(null);
+  }
+
+  /** 加载套餐组成条目（取消回补时按当前组成结构逐项回补） */
+  private List<BundleItem> bundleComponents(Long bundleId) {
+    return bundleItemMapper.selectList(Wrappers.<BundleItem>lambdaQuery()
+        .eq(BundleItem::getBundleId, bundleId)
+        .orderByAsc(BundleItem::getId));
   }
 
   /** 校验身份参数：userId 与 guestId 至少存在其一 */

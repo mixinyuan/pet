@@ -108,10 +108,17 @@ function goOrders() {
             <span>共 {{ cart.checkedItems.length }} 种 · {{ cart.count }} 件</span>
           </div>
           <div class="order-items">
-            <div v-for="item in cart.checkedItems" :key="item.productId" class="order-item">
+            <div
+              v-for="item in cart.checkedItems"
+              :key="`${item.itemType}-${item.productId}`"
+              class="order-item"
+            >
               <img :src="item.productImage" :alt="item.productName" />
               <div>
-                <span class="order-item-name">{{ item.productName }}</span>
+                <span class="order-item-name">
+                  {{ item.productName }}
+                  <em v-if="item.itemType === 'BUNDLE'" class="order-item-type">套餐</em>
+                </span>
                 <span class="order-item-meta">{{ formatPrice(item.price) }} × {{ item.quantity }}</span>
               </div>
               <strong>{{ formatPrice(item.subtotal) }}</strong>
@@ -148,6 +155,20 @@ function goOrders() {
 </template>
 
 <style scoped>
+/* 套餐条目标识（名称后金色小药丸，套餐价即结算单价） */
+.order-item-type {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  font-style: normal;
+  vertical-align: middle;
+}
+
 /* 结账页布局：左商品清单右金额摘要，窄屏折叠为单列 */
 .checkout-page {
   max-width: 1040px;

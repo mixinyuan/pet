@@ -127,10 +127,17 @@ onMounted(loadOrders)
 
         <div v-if="isExpanded(order)" class="order-detail">
           <div class="order-items">
-            <div v-for="item in order.items || []" :key="item.productId" class="order-item">
+            <div
+              v-for="item in order.items || []"
+              :key="`${item.itemType}-${item.productId}`"
+              class="order-item"
+            >
               <img :src="item.productImage" :alt="item.productName" />
               <div>
-                <span class="order-item-name">{{ item.productName }}</span>
+                <span class="order-item-name">
+                  {{ item.productName }}
+                  <em v-if="item.itemType === 'BUNDLE'" class="order-item-type">套餐</em>
+                </span>
                 <span class="order-item-meta">
                   {{ formatPrice(item.price) }} × {{ item.quantity }}
                 </span>
@@ -169,6 +176,20 @@ onMounted(loadOrders)
 </template>
 
 <style scoped>
+/* 套餐条目标识（名称后金色小药丸） */
+.order-item-type {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  font-style: normal;
+  vertical-align: middle;
+}
+
 /* 订单页容器：旧 .orders-list 为抽屉内滚动网格，页面化后限宽居中 */
 .orders-page {
   max-width: 760px;

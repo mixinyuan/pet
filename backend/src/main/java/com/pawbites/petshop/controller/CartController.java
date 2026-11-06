@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.pawbites.petshop.dto.cart.AddCartItemRequest;
@@ -43,11 +44,13 @@ public class CartController {
   }
 
   /**
-   * 添加商品到购物车（POST /api/cart/items）
+   * 添加单品或套餐到购物车（POST /api/cart/items）
+   * <p>productId 与 bundleId 恰好传其一：前者加购单品、后者按套餐价加购套餐；
+   * 套餐不单独维护库存，加购与结算均按组成商品库存校验。</p>
    *
-   * @param requestBody 加购请求（productId 商品 id、quantity 加购数量，缺省为 1）
+   * @param requestBody 加购请求（productId/bundleId 二选一、quantity 加购数量，缺省为 1）
    * @return 更新后的购物车详情
-   * @throws BusinessException 商品不存在或已下架（404）、商品数量必须大于 0、库存不足时抛出
+   * @throws BusinessException 商品/套餐不存在或已下架（404）、数量非法、库存不足时抛出
    */
   @PostMapping("/items")
   public ApiResponse<CartVO> addItem(@Valid @RequestBody AddCartItemRequest requestBody) {
@@ -55,30 +58,38 @@ public class CartController {
   }
 
   /**
-   * 修改购物车中指定商品的购买数量（PUT /api/cart/items/{productId}）
+   * 修改购物车中指定条目的购买数量（PUT /api/cart/items/{id}?type=）
    *
-   * @param productId 商品 id
+   * @param refId 关联 id（单品为商品 id，套餐为套餐 id）
+   * @param type 条目类型（PRODUCT-单品 BUNDLE-套餐，缺省 PRODUCT）
    * @param requestBody 修改请求（quantity 新数量，必须大于等于 1）
    * @return 更新后的购物车详情
-   * @throws BusinessException 购物车中没有该商品或商品库存不足时抛出
+   * @throws BusinessException 购物车中没有该条目或库存不足时抛出
    */
-  @PutMapping("/items/{productId}")
+  @PutMapping("/items/{refId}")
   public ApiResponse<CartVO> updateItem(
-      @PathVariable Long productId,
+      @PathVariable Long refId,
+      @RequestParam(name = "type", required = false, defaultValue = "PRODUCT") String type,
       @Valid @RequestBody UpdateCartItemRequest requestBody
   ) {
-    return ApiResponse.success(cartService.updateItem(SecurityUtils.currentUserId(), SecurityUtils.guestId(), productId, requestBody));
+    return ApiResponse.success(
+        cartService.updateItem(SecurityUtils.currentUserId(), SecurityUtils.guestId(), refId, type, requestBody));
   }
 
   /**
-   * 删除购物车中指定的商品条目（DELETE /api/cart/items/{productId}）
+   * 删除购物车中指定的条目（DELETE /api/cart/items/{id}?type=）
    *
-   * @param productId 商品 id
+   * @param refId 关联 id（单品为商品 id，套餐为套餐 id）
+   * @param type 条目类型（PRODUCT-单品 BUNDLE-套餐，缺省 PRODUCT）
    * @return 更新后的购物车详情
    */
-  @DeleteMapping("/items/{productId}")
-  public ApiResponse<CartVO> removeItem(@PathVariable Long productId) {
-    return ApiResponse.success(cartService.removeItem(SecurityUtils.currentUserId(), SecurityUtils.guestId(), productId));
+  @DeleteMapping("/items/{refId}")
+  public ApiResponse<CartVO> removeItem(
+      @PathVariable Long refId,
+      @RequestParam(name = "type", required = false, defaultValue = "PRODUCT") String type
+  ) {
+    return ApiResponse.success(
+        cartService.removeItem(SecurityUtils.currentUserId(), SecurityUtils.guestId(), refId, type));
   }
 
   /**

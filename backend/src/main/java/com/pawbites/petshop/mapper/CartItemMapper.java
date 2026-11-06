@@ -15,7 +15,8 @@ public interface CartItemMapper extends BaseMapper<CartItem> {
 
   /**
    * 原子合并插入购物车条目（INSERT ... ON DUPLICATE KEY UPDATE）
-   * <p>依赖 uk_cart_item (cart_id, product_id) 唯一索引，单条 SQL 原子完成“无则插入、有则累加数量”，
+   * <p>依赖 uk_cart_item (cart_id, item_type, product_id) 唯一索引（V9 起纳入 item_type，
+   * 商品与套餐条目互不冲突），单条 SQL 原子完成“无则插入、有则累加数量”，
    * 取代“先查再插入/更新”的两步写法，消除并发加购竞态（重复行/覆盖丢量）。</p>
    * <p>冲突分支同时回置 checked = 1、deleted = 0：逻辑删除的条目仍占用唯一键，
    * 若不回置，被删除（removed/clear 置 deleted=1）后重新加购的商品会合并进不可见行。</p>
@@ -25,18 +26,20 @@ public interface CartItemMapper extends BaseMapper<CartItem> {
    * 因此 IF 判断必须置于 deleted = 0 回置之前，才能读到行的原始删除状态。</p>
    *
    * @param cartId    购物车 id
-   * @param productId 商品 id
+   * @param productId 关联 id（单品为商品 id，套餐为套餐 id）
+   * @param itemType  条目类型（PRODUCT-单品 BUNDLE-套餐）
    * @param quantity  本次加购数量（正整数）
    * @return 受影响行数：1 表示新插入；2 表示命中唯一键执行了更新
    */
   @Insert("""
-      INSERT INTO cart_item (cart_id, product_id, quantity, checked, created_at, updated_at, deleted)
-      VALUES (#{cartId}, #{productId}, #{quantity}, 1, NOW(), NOW(), 0)
+      INSERT INTO cart_item (cart_id, product_id, item_type, quantity, checked, created_at, updated_at, deleted)
+      VALUES (#{cartId}, #{productId}, #{itemType}, #{quantity}, 1, NOW(), NOW(), 0)
       ON DUPLICATE KEY UPDATE
         quantity = IF(deleted = 1, #{quantity}, quantity + #{quantity}),
         checked = 1,
         deleted = 0,
         updated_at = NOW()
       """)
-  int upsertItem(@Param("cartId") Long cartId, @Param("productId") Long productId, @Param("quantity") int quantity);
+  int upsertItem(@Param("cartId") Long cartId, @Param("productId") Long productId,
+      @Param("itemType") String itemType, @Param("quantity") int quantity);
 }

@@ -90,11 +90,15 @@ export interface SubscriptionVO {
 
 /** 购物车条目（vo/cart/CartItemVO，GET/POST/PUT/DELETE /api/cart** 的返回元素） */
 export interface CartItemVO {
+  /** 条目类型：PRODUCT-单品（productId 为商品 id） BUNDLE-套餐（productId 为套餐 id、price 为套餐价） */
+  itemType: 'PRODUCT' | 'BUNDLE'
+  /** 关联 ID：单品为商品 id，套餐为套餐 id */
   productId: number
+  /** 名称：单品为商品名，套餐为套餐名 */
   productName: string
-  /** 商品主图地址 */
+  /** 图片地址：单品为商品主图，套餐取首个组成商品图片 */
   productImage: string
-  /** 商品单价（结算时按此价格计） */
+  /** 单价（单品为商品价、套餐为套餐价，结算时按此价格计） */
   price: number
   quantity: number
   /** 小计金额（单价 × 数量） */
@@ -114,10 +118,13 @@ export interface CartVO {
 
 /** 订单明细（vo/order/OrderItemVO，名称/图片/单价均为下单时快照） */
 export interface OrderItemVO {
+  /** 条目类型：PRODUCT-单品 BUNDLE-套餐（productId 为套餐 id、price 为套餐价） */
+  itemType: 'PRODUCT' | 'BUNDLE'
+  /** 关联 ID：单品为商品 id，套餐为套餐 id */
   productId: number
   productName: string
   productImage: string
-  /** 成交单价（下单时快照） */
+  /** 成交单价（下单时快照，套餐行即套餐价） */
   price: number
   quantity: number
   subtotal: number
