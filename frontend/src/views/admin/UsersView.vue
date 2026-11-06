@@ -68,6 +68,13 @@ function search() {
   load()
 }
 
+/** 一键清空全部筛选条件并重新查询 */
+function resetFilters() {
+  filters.keyword = ''
+  filters.status = 'all'
+  search()
+}
+
 /* ---------------- 展示辅助 ---------------- */
 
 function formatMoney(value: number | null | undefined) {
@@ -184,6 +191,7 @@ const validSpend = computed(() =>
         @keyup.enter="search"
         @clear="search"
       />
+      <el-button @click="resetFilters">重置</el-button>
     </div>
 
     <el-table v-loading="loading" :data="rows" :empty-text="emptyText">

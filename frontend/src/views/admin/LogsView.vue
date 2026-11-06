@@ -69,6 +69,12 @@ function search() {
   load()
 }
 
+/** 一键清空筛选条件并重新查询 */
+function resetFilters() {
+  filters.keyword = ''
+  search()
+}
+
 /** 序号跨页连续：第 N 页第 i 行 = (N-1)*size + i + 1 */
 function rowNumber(index: number) {
   return (page.value - 1) * PAGE_SIZE + index + 1
@@ -231,6 +237,7 @@ async function handleSubmit() {
         @keyup.enter="search"
         @clear="search"
       />
+      <el-button @click="resetFilters">重置</el-button>
     </div>
 
     <el-table v-loading="loading" :data="rows" :empty-text="emptyText">

@@ -64,7 +64,7 @@ export interface AdminDashboardRecentOrderVO {
   id: number
   orderNo: string
   /** 下单人展示名（游客单为「游客 + guestId 前 6 位」） */
-  buyerName: string
+  ownerName: string
   itemCount: number
   totalAmount: number
   /** CREATED-已创建 / CANCELLED-已取消 */
@@ -76,6 +76,7 @@ export interface AdminDashboardRecentOrderVO {
 export interface AdminDashboardTopProductVO {
   productId: number
   productName: string
+  imageUrl: string | null
   soldQuantity: number
   salesAmount: number
 }
@@ -83,7 +84,7 @@ export interface AdminDashboardTopProductVO {
 /** 管理端数据看板 —— 库存预警（stock < 20，含已下架） */
 export interface AdminDashboardLowStockVO {
   productId: number
-  productName: string
+  name: string
   sku: string
   stock: number
   /** ACTIVE-上架 / INACTIVE-下架 */

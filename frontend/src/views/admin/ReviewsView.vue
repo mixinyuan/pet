@@ -75,6 +75,13 @@ function search() {
   load()
 }
 
+/** 一键清空全部筛选条件并重新查询 */
+function resetFilters() {
+  filters.keyword = ''
+  filters.status = 'all'
+  search()
+}
+
 /** 删除末页最后一条后回退一页，避免停留在空页 */
 function stepBackPage() {
   if (rows.value.length === 1 && page.value > 1) page.value -= 1
@@ -268,6 +275,7 @@ async function handleSubmit() {
         @keyup.enter="search"
         @clear="search"
       />
+      <el-button @click="resetFilters">重置</el-button>
     </div>
 
     <el-table v-loading="loading" :data="rows" :empty-text="emptyText">

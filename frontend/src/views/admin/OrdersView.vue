@@ -7,6 +7,7 @@
  * - 取消将回补商品库存并退还该订单核销的优惠券，二次确认文案保留。
  */
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { cancelAdminOrder, fetchAdminOrder, fetchAdminOrders } from '@/api/admin/order'
@@ -83,12 +84,34 @@ async function load() {
   }
 }
 
-onMounted(load)
+const route = useRoute()
+const router = useRouter()
+
+onMounted(() => {
+  // 看板「最近订单」跳转落地：按订单号预填搜索（locate 标记触发定位提示，之后清除）
+  if (typeof route.query.q === 'string' && route.query.q.trim()) {
+    filters.q = route.query.q.trim()
+    if (route.query.locate === '1') {
+      ElMessage.info(`已按订单号定位：${filters.q}`)
+    }
+    router.replace({ query: filters.q ? { q: filters.q } : {} })
+  }
+  load()
+})
 
 /** 搜索/筛选变化：重置到第 1 页（与旧版一致） */
 function search() {
   page.value = 1
   load()
+}
+
+/** 一键清空全部筛选条件（状态/日期区间/关键字）并重新查询 */
+function resetFilters() {
+  filters.status = 'all'
+  filters.from = ''
+  filters.to = ''
+  filters.q = ''
+  search()
 }
 
 /* ---------------- 展示辅助 ---------------- */
@@ -207,6 +230,7 @@ async function handleCancel(id: number) {
         @keyup.enter="search"
         @clear="search"
       />
+      <el-button @click="resetFilters">重置</el-button>
     </div>
 
     <el-table v-loading="loading" :data="rows" :empty-text="emptyText">

@@ -5,6 +5,7 @@
  * all 不传）；编辑先拉详情再回填表单；分类/标签以 chips（checkbox 按钮组）选择，引用数据来自父组件。
  */
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
@@ -88,12 +89,31 @@ async function load() {
   }
 }
 
-onMounted(load)
+const route = useRoute()
+const router = useRouter()
+
+onMounted(async () => {
+  await load()
+  // 看板「去补库存」跳转落地：直接拉起该商品的编辑弹窗（处理后清除 query，避免刷新重复打开）
+  const editId = Number(route.query.edit)
+  if (route.query.edit !== undefined && Number.isFinite(editId) && editId > 0) {
+    openEdit(editId)
+    router.replace({ query: {} })
+  }
+})
 
 /** 搜索/筛选变化：重置到第 1 页（与旧版一致） */
 function search() {
   page.value = 1
   load()
+}
+
+/** 一键清空全部筛选条件并重新查询 */
+function resetFilters() {
+  filters.keyword = ''
+  filters.category = 'all'
+  filters.status = 'all'
+  search()
 }
 
 /* ---------------- 名称映射与展示 ---------------- */
@@ -357,6 +377,7 @@ async function handleSubmit() {
         @keyup.enter="search"
         @clear="search"
       />
+      <el-button @click="resetFilters">重置</el-button>
     </div>
 
     <el-table v-loading="loading" :data="rows" :empty-text="emptyText">
